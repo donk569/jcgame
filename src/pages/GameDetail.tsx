@@ -1,0 +1,444 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Bookmark,
+  CaretLeft,
+  CaretRight,
+  DownloadSimple,
+  Heart,
+  Play,
+  ShareNetwork,
+  ShieldCheck,
+  X,
+} from '@phosphor-icons/react';
+import { GamePost } from '@/components/GameCard';
+import { PlayModal } from '@/components/PlayModal';
+import { useToast } from '@/components/Toast';
+import { formatBytes, formatCount, games, getCreator, getGame } from '@/data/games';
+import NotFound from './NotFound';
+
+export default function GameDetail() {
+  const { slug } = useParams();
+  const [params, setParams] = useSearchParams();
+  const game = slug ? getGame(slug) : undefined;
+  const toast = useToast();
+
+  const [playOpen, setPlayOpen] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [shot, setShot] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
+
+  useEffect(() => {
+    if (params.get('play') === '1' && game?.runMode === 'web') {
+      setPlayOpen(true);
+      params.delete('play');
+      setParams(params, { replace: true });
+    }
+  }, [params, setParams, game]);
+
+  const related = useMemo(() => {
+    if (!game) return [];
+    return games
+      .filter((g) => g.slug !== game.slug)
+      .sort((a, b) => {
+        const score = (x: typeof a) =>
+          (x.engine === game.engine ? 2 : 0) +
+          x.categories.filter((c) => game.categories.includes(c)).length;
+        return score(b) - score(a);
+      })
+      .slice(0, 4);
+  }, [game]);
+
+  if (!game) return <NotFound />;
+
+  const creator = getCreator(game.studio.handle);
+  const shots = game.shots ?? [game.cover];
+  const isWeb = game.runMode === 'web';
+
+  const share = async () => {
+    const url = `${window.location.origin}/game/${game.slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.push('链接已复制', 'ok');
+    } catch {
+      toast.push(`复制失败，手动复制：${url}`);
+    }
+  };
+
+  return (
+    <div className="pb-10">
+      {/* ---------- 主视觉：大圆角容器 + 压字 ---------- */}
+      <div className="wrap pt-2">
+        <div className="relative overflow-hidden rounded-none border border-line-soft">
+          <img
+            src={game.keyart ?? game.cover}
+            alt=""
+            className="h-[340px] w-full object-cover md:h-[440px] lg:h-[500px]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-ink-950/95 via-ink-950/45 to-ink-950/25" />
+          <div className="noise absolute inset-0" />
+
+          <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-5 p-5 md:p-8">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {game.categories.map((c) => (
+                  <Link
+                    key={c}
+                    to={`/explore?category=${encodeURIComponent(c)}`}
+                    className="chip chip-glass text-[12px]"
+                  >
+                    {c}
+                  </Link>
+                ))}
+                <span className={`chip chip-glass text-[12px] ${isWeb ? 'text-teal' : 'text-warm'}`}>
+                  {isWeb ? '网页试玩' : '客户端下载'}
+                </span>
+              </div>
+              <h1 className="mt-3 text-[clamp(2.1rem,4.4vw,3.6rem)] font-extrabold leading-none tracking-[-0.04em] text-bone">
+                {game.titleCn}
+              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] text-bone-dim">
+                <Link
+                  to={`/creator/${game.studio.handle}`}
+                  className="link-underline font-medium hover:text-brand"
+                >
+                  {game.studio.name}
+                </Link>
+                <span className="text-bone-dim/40">/</span>
+                <span className="mono text-muted">{game.title}</span>
+                <span className="text-bone-dim/40">/</span>
+                <span className="mono text-muted">v{game.version}</span>
+              </div>
+              <p className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-bone-dim">
+                {game.tagline}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  setSaved((v) => !v);
+                  toast.push(saved ? '已取消收藏' : '已收藏，去工作台看', 'ok');
+                }}
+                className={`btn ${saved ? 'btn-primary' : 'btn-ghost'} btn-icon`}
+                aria-pressed={saved}
+                aria-label={saved ? '取消收藏' : '收藏'}
+              >
+                <motion.span animate={saved ? { scale: [1, 1.25, 1] } : {}} transition={{ duration: 0.3 }}>
+                  <Bookmark size={17} weight={saved ? 'fill' : 'regular'} />
+                </motion.span>
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  setLiked((v) => !v);
+                }}
+                className="btn btn-ghost h-[46px] gap-2 px-4"
+                aria-pressed={liked}
+                aria-label="点赞"
+              >
+                <motion.span
+                  animate={liked ? { scale: [1, 1.35, 0.95, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.42, ease: [0.22, 0.68, 0, 1] }}
+                  className={liked ? 'text-warm' : ''}
+                >
+                  <Heart size={17} weight={liked ? 'fill' : 'regular'} />
+                </motion.span>
+                <span className="mono">{formatCount(game.likes + (liked ? 1 : 0))}</span>
+              </motion.button>
+              <button onClick={share} className="btn btn-ghost btn-icon" aria-label="分享">
+                <ShareNetwork size={17} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="wrap mt-5 grid-12">
+        {/* ---------- 主列 ---------- */}
+        <div className="col-span-12 lg:col-span-8">
+          {/* 运行入口 */}
+          <div
+            className="relative overflow-hidden rounded-none border p-5 md:p-6"
+            style={{
+              borderColor: isWeb ? '#35d6c040' : '#8e6bff40',
+              background: isWeb
+                ? 'linear-gradient(120deg, #35d6c014, transparent 60%), var(--color-ink-800)'
+                : 'linear-gradient(120deg, #8e6bff14, transparent 60%), var(--color-ink-800)',
+            }}
+          >
+            {isWeb ? (
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Play size={16} weight="fill" className="text-teal" />
+                    <span className="text-[15px] font-semibold">在浏览器里直接玩</span>
+                  </div>
+                  <p className="mono mt-2 text-muted">
+                    首包 {formatBytes(game.webBuild?.bytes ?? 0)} · {game.webBuild?.host}
+                  </p>
+                </div>
+                <button className="btn btn-primary" onClick={() => setPlayOpen(true)}>
+                  <Play size={15} weight="fill" /> 开始试玩
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <DownloadSimple size={16} weight="bold" className="text-warm" />
+                    <span className="text-[15px] font-semibold">
+                      下载 {game.download?.platform} 版本
+                    </span>
+                  </div>
+                  <p className="mono mt-2 text-muted">
+                    {game.download && formatBytes(game.download.bytes)} · v{game.version} ·{' '}
+                    {game.download?.arch}
+                  </p>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => toast.push('开始下载（演示环境不会真的下载）', 'ok')}
+                >
+                  <DownloadSimple size={15} weight="bold" /> 下载客户端
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 画面：主图 + 缩略图切换 */}
+          <section className="mt-6">
+            <div className="mb-3 flex items-end justify-between">
+              <h2 className="text-[15px] font-semibold">画面</h2>
+              <button
+                onClick={() => setLightbox(true)}
+                className="text-[12.5px] text-muted transition-colors hover:text-brand"
+              >
+                放大看
+              </button>
+            </div>
+            <div className="relative overflow-hidden rounded-none border border-line-soft">
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={shots[shot]}
+                  src={shots[shot]}
+                  alt={`${game.titleCn} 画面 ${shot + 1}`}
+                  className="aspect-[16/10] w-full object-cover"
+                  initial={{ opacity: 0, scale: 1.01 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.32, ease: [0.22, 0.68, 0, 1] }}
+                />
+              </AnimatePresence>
+            </div>
+            {shots.length > 1 && (
+              <div className="mt-2 flex gap-2">
+                {shots.map((src, i) => (
+                  <button
+                    key={src + i}
+                    onClick={() => setShot(i)}
+                    className={`relative overflow-hidden rounded-[2px] border-2 transition-all ${
+                      i === shot ? 'border-brand' : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                    aria-label={`第 ${i + 1} 张画面`}
+                    aria-pressed={i === shot}
+                  >
+                    <img src={src} alt="" className="h-14 w-24 object-cover" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {!game.shots && (
+              <p className="mt-2 text-[12px] text-muted-dim">
+                开发者只上传了封面，暂无游戏内截图。
+              </p>
+            )}
+          </section>
+
+          {/* 关于 */}
+          <section className="mt-8">
+            <h2 className="text-[15px] font-semibold">关于这款游戏</h2>
+            <div className="mt-3 max-w-[66ch] space-y-4 text-[15px] leading-[1.75] text-bone-dim">
+              {game.description.map((p) => (
+                <p key={p.slice(0, 12)}>{p}</p>
+              ))}
+            </div>
+          </section>
+
+          {/* 系统要求 / 运行环境 */}
+          <section className="mt-8">
+            <h2 className="text-[15px] font-semibold">{isWeb ? '运行环境' : '系统要求'}</h2>
+            <dl className="mt-3 overflow-hidden rounded-none border border-line-soft">
+              {(isWeb
+                ? [
+                    ['运行方式', '浏览器内运行（WebGL / WASM）'],
+                    ['入口文件', game.webBuild?.entry ?? 'index.html'],
+                    ['构建体积', formatBytes(game.webBuild?.bytes ?? 0)],
+                    ['引擎版本', game.webBuild?.engineVersion ?? game.engineVersion],
+                    ['隔离域', game.webBuild?.host ?? '—'],
+                  ]
+                : (game.download?.requirements ?? []).map((r) => [r.label, r.value])
+              ).map(([k, v], i) => (
+                <div
+                  key={k}
+                  className={`flex items-baseline justify-between gap-6 px-4 py-3 ${
+                    i % 2 === 0 ? 'bg-ink-800/50' : ''
+                  }`}
+                >
+                  <dt className="shrink-0 text-[13px] text-muted">{k}</dt>
+                  <dd className="text-right text-[13px] text-bone-dim">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          {/* 更新日志 */}
+          {game.changelog && (
+            <section className="mt-8">
+              <h2 className="text-[15px] font-semibold">更新日志</h2>
+              <ol className="mt-4 space-y-6">
+                {game.changelog.map((c) => (
+                  <li key={c.version} className="relative pl-5">
+                    <span className="absolute left-0 top-[7px] h-[7px] w-[7px] rounded-full bg-brand/70" />
+                    <span className="absolute bottom-0 left-[3px] top-5 w-px bg-line" aria-hidden="true" />
+                    <div className="flex items-center gap-2.5">
+                      <span className="mono text-bone">v{c.version}</span>
+                      <span className="mono text-muted-dim">{c.date}</span>
+                    </div>
+                    <ul className="mt-2 space-y-1.5">
+                      {c.notes.map((n) => (
+                        <li key={n} className="text-[13.5px] leading-relaxed text-muted">
+                          {n}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+        </div>
+
+        {/* ---------- 右栏 ---------- */}
+        <aside className="col-span-12 mt-6 lg:col-span-4 lg:mt-0">
+          <div className="sticky top-[92px] space-y-3">
+            <div className="rounded-none border border-line-soft bg-ink-800 p-5">
+              <div className="flex items-center gap-3">
+                <span
+                  className="avatar-sq h-10 w-10 border border-line text-[14px]"
+                  aria-hidden="true"
+                >
+                  {game.studio.name.slice(0, 1)}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[13.5px] font-semibold">{game.studio.name}</div>
+                  <div className="mono mt-0.5 text-muted-dim">
+                    {creator ? `${formatCount(creator.followers)} 关注` : '新加入'}
+                  </div>
+                </div>
+                <Link
+                  to={`/creator/${game.studio.handle}`}
+                  className="ml-auto shrink-0 rounded-[2px] border border-line px-2.5 py-1 text-[12px] text-bone-dim transition-colors hover:border-brand hover:text-brand"
+                >
+                  主页
+                </Link>
+              </div>
+
+              <dl className="mt-5 space-y-2.5 border-t border-line-soft pt-4">
+                {[
+                  ['引擎', game.engine],
+                  ['引擎版本', game.engineVersion],
+                  ['支持平台', game.platforms.join(' / ')],
+                  ['运行方式', isWeb ? '网页试玩' : '客户端下载'],
+                  ['版本', `v${game.version}`],
+                  ['最后更新', game.updatedAt],
+                  ['价格', game.price === 'free' ? '免费' : '付费'],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-baseline justify-between gap-3">
+                    <dt className="text-[12.5px] text-muted">{k}</dt>
+                    <dd className="mono text-right text-[12px] text-bone-dim">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+
+            <div className="rounded-none border border-line-soft p-5">
+              <div className="mono mb-2.5 text-muted-dim">标签</div>
+              <div className="flex flex-wrap gap-1.5">
+                {game.tags.map((t) => (
+                  <Link key={t} to={`/explore?tag=${encodeURIComponent(t)}`} className="chip">
+                    {t}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 px-1 text-[11.5px] leading-relaxed text-muted-dim">
+              <ShieldCheck size={13} className="mt-0.5 shrink-0" />
+              网页版在独立域与沙箱 iframe 中运行，不共享 JCGame 的登录态与本地存储。
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* ---------- 相似 ---------- */}
+      <section className="wrap mt-14">
+        <div className="section-head">
+          <h2 className="display-h2">相似的游戏</h2>
+          <Link to="/explore" className="text-[13.5px] text-bone-dim hover:text-brand">
+            更多
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {related.map((g) => (
+            <GamePost key={g.slug} game={g} ratio="portrait" />
+          ))}
+        </div>
+      </section>
+
+      {isWeb && <PlayModal game={game} open={playOpen} onClose={() => setPlayOpen(false)} />}
+
+      {/* ---------- 灯箱 ---------- */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            className="fixed inset-0 z-[105] flex items-center justify-center bg-ink-950/94 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <button
+              className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-[2px] border border-line text-bone"
+              onClick={() => setLightbox(false)}
+              aria-label="关闭"
+            >
+              <X size={18} weight="bold" />
+            </button>
+            <button
+              className="absolute left-3 grid h-10 w-10 place-items-center rounded-[2px] border border-line text-bone md:left-8"
+              onClick={() => setShot((i) => (i - 1 + shots.length) % shots.length)}
+              aria-label="上一张"
+            >
+              <CaretLeft size={18} weight="bold" />
+            </button>
+            <img
+              src={shots[shot]}
+              alt={`${game.titleCn} 画面`}
+              className="max-h-[84vh] w-auto max-w-full rounded-none border border-line"
+            />
+            <button
+              className="absolute right-3 grid h-10 w-10 place-items-center rounded-[2px] border border-line text-bone md:right-8"
+              onClick={() => setShot((i) => (i + 1) % shots.length)}
+              aria-label="下一张"
+            >
+              <CaretRight size={18} weight="bold" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

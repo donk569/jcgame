@@ -1,0 +1,12 @@
+node_modules/
+dist/
+shots/
+art-source/
+*.local
+.DS_Store
+
+.vercel
+
+site/
+.workbuddy/
+*.tsbuildinfo
