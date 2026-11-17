@@ -2,7 +2,18 @@
 
 开放式独立游戏平台。任何引擎、任何平台都能发布；网页直接试玩，桌面版给安装包。
 
-**线上地址**：https://jcgame.app.workbuddy.host/?sharecode=YHQCG3L3MY
+## 线上地址
+
+| 地址 | 说明 |
+|---|---|
+| **https://donk569.github.io/jcgame/** | GitHub Pages，链接干净、无查询参数，**发人用这个** |
+| https://jcgame.app.workbuddy.host/?sharecode=YHQCG3L3MY | 平台托管（国内节点，速度更快，但链接带 sharecode） |
+
+两处是同一份代码。GitHub Pages 走 `gh-pages` 分支的构建产物（`npm run build:gh`），
+平台那版走 `server.mjs` + `site/`。
+
+> Vercel 也部署过（`jcgame.vercel.app`），但 `vercel.app` 在国内 DNS 被污染、直连超时，
+> 不推荐作为对外地址，保留 `vercel.json` 仅为将来备用。
 
 ![](docs/preview.jpg)
 
@@ -11,13 +22,31 @@
 ```bash
 npm install
 npm run dev      # http://127.0.0.1:5173
-npm run build    # 产物在 dist/，同时复制一份到 site/（线上用）
+npm run build    # 产物在 dist/，同时复制一份到 site/（平台托管用）
+npm run build:gh # 产物 base 为 /jcgame/ 并生成 404.html（GitHub Pages 用）
 npm start        # 生产静态服务器（读 PORT），带 SPA 回退
 ```
 
 线上部署由 `server.mjs` 提供：读 `process.env.PORT`、绑定 `0.0.0.0`、
 非静态资源路径回退到 `index.html`（这样 `/explore`、`/game/xxx` 可以直接打开）。
 构建产物会被复制到 `site/` —— 发布沙箱不接收 `dist/` 这类构建目录，所以必须另存一份。
+
+### GitHub Pages 部署
+
+```bash
+npm run build:gh
+cd dist && git add -A && git commit -m "deploy" && git push -f origin gh-pages
+```
+
+`build:gh` 做三件事：`--base=/jcgame/`（子路径部署，路由 basename 会自动跟随
+`import.meta.env.BASE_URL`）、把 `index.html` 复制成 `404.html`（Pages 没有服务端重写，
+深链接靠它接管）、写 `.nojekyll`。
+
+### 换成自己的域名（可选，免费）
+
+GitHub Pages 支持自定义域名：在 `dist/` 里放一个内容为域名的 `CNAME` 文件、
+DNS 加一条 CNAME 记录指向 `donk569.github.io`，然后在仓库 Settings → Pages 里填域名并开启 HTTPS。
+这一步做完，地址就是 `jcgame.com` 这种，且仍然是免费的。
 
 ## 页面
 
