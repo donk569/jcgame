@@ -1,4 +1,10 @@
 /**
+ * 静态资源路径：部署在子路径（GitHub Pages 的 /jcgame/）时也要能取到。
+ * 根路径部署时 BASE_URL 为 '/'，结果与原来完全一致。
+ */
+const A = (p: string) => `${import.meta.env.BASE_URL}art/${p}`;
+
+/**
  * 模拟数据层。
  * 之后接后端时，只需要把这几个导出替换成 API 请求（字段名保持不变即可），
  * 页面对数据的假设都收敛在这一层：见 DESIGN.md「数据契约」。
@@ -76,9 +82,9 @@ export const games: Game[] = [
     plays: 184320,
     likes: 12840,
     price: 'free',
-    cover: '/art/covers/neon-drift.webp',
-    keyart: '/art/keyart/neon-drift-keyart.webp',
-    shots: ['/art/shots/neon-drift-01.webp', '/art/shots/neon-drift-02.webp', '/art/shots/neon-drift-03.webp'],
+    cover: A('covers/neon-drift.webp'),
+    keyart: A('keyart/neon-drift-keyart.webp'),
+    shots: [A('shots/neon-drift-01.webp'), A('shots/neon-drift-02.webp'), A('shots/neon-drift-03.webp')],
     webBuild: {
       entry: 'index.html',
       engineVersion: '2022.3.42f1',
@@ -121,7 +127,7 @@ export const games: Game[] = [
     plays: 41230,
     likes: 5210,
     price: 'free',
-    cover: '/art/covers/tundra-courier.webp',
+    cover: A('covers/tundra-courier.webp'),
     webBuild: { entry: 'index.html', engineVersion: '4.3', bytes: 28_311_552, host: 'tundra.jcgame.run' },
     changelog: [
       { version: '0.9.7', date: '2026-11-02', notes: ['重做第四章的风向计算', '修复存档在浏览器刷新后丢失'] },
@@ -150,7 +156,7 @@ export const games: Game[] = [
     plays: 96840,
     likes: 8930,
     price: 'paid',
-    cover: '/art/covers/ink-tide.webp',
+    cover: A('covers/ink-tide.webp'),
     download: {
       platform: 'Windows',
       arch: 'x64',
@@ -191,7 +197,7 @@ export const games: Game[] = [
     plays: 312400,
     likes: 21870,
     price: 'free',
-    cover: '/art/covers/pixel-ronin.webp',
+    cover: A('covers/pixel-ronin.webp'),
     webBuild: { entry: 'index.html', engineVersion: 'ES2022', bytes: 8_808_448, host: 'ronin.jcgame.run' },
     changelog: [{ version: '2.1.0', date: '2026-11-11', notes: ['新增第 9 座桥', '支持键盘自定义键位'] }],
   },
@@ -217,7 +223,7 @@ export const games: Game[] = [
     plays: 74820,
     likes: 7420,
     price: 'paid',
-    cover: '/art/covers/teeth-of-the-deep.webp',
+    cover: A('covers/teeth-of-the-deep.webp'),
     download: {
       platform: 'Windows',
       arch: 'x64',
@@ -255,7 +261,7 @@ export const games: Game[] = [
     plays: 52310,
     likes: 6180,
     price: 'free',
-    cover: '/art/covers/last-train.webp',
+    cover: A('covers/last-train.webp'),
     download: {
       platform: 'Windows',
       arch: 'x64',
@@ -292,7 +298,7 @@ export const games: Game[] = [
     plays: 128900,
     likes: 11240,
     price: 'paid',
-    cover: '/art/covers/iron-harvest.webp',
+    cover: A('covers/iron-harvest.webp'),
     download: {
       platform: 'Windows',
       arch: 'x64',
@@ -329,7 +335,7 @@ export const games: Game[] = [
     plays: 224180,
     likes: 19320,
     price: 'free',
-    cover: '/art/covers/acorn-house.webp',
+    cover: A('covers/acorn-house.webp'),
     webBuild: { entry: 'index.html', engineVersion: '4.2', bytes: 18_874_368, host: 'acorn.jcgame.run' },
   },
   {
@@ -354,7 +360,7 @@ export const games: Game[] = [
     plays: 402310,
     likes: 16720,
     price: 'free',
-    cover: '/art/covers/void-basket.webp',
+    cover: A('covers/void-basket.webp'),
     webBuild: { entry: 'index.html', engineVersion: '2022.3.44f1', bytes: 41_360_384, host: 'voidbasket.jcgame.run' },
   },
   {
@@ -379,7 +385,7 @@ export const games: Game[] = [
     plays: 156740,
     likes: 14210,
     price: 'free',
-    cover: '/art/covers/circuit-bloom.webp',
+    cover: A('covers/circuit-bloom.webp'),
     webBuild: { entry: 'index.html', engineVersion: 'Web Audio API', bytes: 5_242_880, host: 'bloom.jcgame.run' },
   },
   {
@@ -404,7 +410,7 @@ export const games: Game[] = [
     plays: 61240,
     likes: 4980,
     price: 'free',
-    cover: '/art/covers/half-light.webp',
+    cover: A('covers/half-light.webp'),
     download: {
       platform: 'Windows',
       arch: 'x64',
@@ -441,7 +447,7 @@ export const games: Game[] = [
     plays: 88910,
     likes: 8340,
     price: 'free',
-    cover: '/art/covers/paper-kite.webp',
+    cover: A('covers/paper-kite.webp'),
     webBuild: { entry: 'index.html', engineVersion: '3.8.3', bytes: 12_582_912, host: 'paperkite.jcgame.run' },
   },
 ];
@@ -527,15 +533,15 @@ export const creators: Creator[] = [
 ];
 
 export const categories = [
-  { slug: 'action', name: '动作', desc: '手感与节奏', count: 214, color: '#FF7A5C', preview: '/art/covers/pixel-ronin.webp' },
-  { slug: 'puzzle', name: '解谜', desc: '想通的那一刻', count: 168, color: '#E8B04B', preview: '/art/covers/paper-kite.webp' },
-  { slug: 'story', name: '叙事', desc: '听完一个故事', count: 132, color: '#E39BB0', preview: '/art/covers/last-train.webp' },
-  { slug: 'racing', name: '竞速', desc: '把弯跑直', count: 47, color: '#4CC9F0', preview: '/art/covers/neon-drift.webp' },
-  { slug: 'horror', name: '恐怖', desc: '别开灯', count: 63, color: '#C0494E', preview: '/art/covers/teeth-of-the-deep.webp' },
-  { slug: 'strategy', name: '策略', desc: '一步想三步', count: 58, color: '#7FA650', preview: '/art/covers/iron-harvest.webp' },
-  { slug: 'sim', name: '模拟', desc: '慢一点也没关系', count: 121, color: '#46C08A', preview: '/art/covers/acorn-house.webp' },
-  { slug: 'party', name: '派对', desc: '人越多越好玩', count: 39, color: '#F472B6', preview: '/art/covers/void-basket.webp' },
-  { slug: 'music', name: '音乐', desc: '跟着节拍走', count: 44, color: '#6C8CFF', preview: '/art/covers/circuit-bloom.webp' },
+  { slug: 'action', name: '动作', desc: '手感与节奏', count: 214, color: '#FF7A5C', preview: A('covers/pixel-ronin.webp') },
+  { slug: 'puzzle', name: '解谜', desc: '想通的那一刻', count: 168, color: '#E8B04B', preview: A('covers/paper-kite.webp') },
+  { slug: 'story', name: '叙事', desc: '听完一个故事', count: 132, color: '#E39BB0', preview: A('covers/last-train.webp') },
+  { slug: 'racing', name: '竞速', desc: '把弯跑直', count: 47, color: '#4CC9F0', preview: A('covers/neon-drift.webp') },
+  { slug: 'horror', name: '恐怖', desc: '别开灯', count: 63, color: '#C0494E', preview: A('covers/teeth-of-the-deep.webp') },
+  { slug: 'strategy', name: '策略', desc: '一步想三步', count: 58, color: '#7FA650', preview: A('covers/iron-harvest.webp') },
+  { slug: 'sim', name: '模拟', desc: '慢一点也没关系', count: 121, color: '#46C08A', preview: A('covers/acorn-house.webp') },
+  { slug: 'party', name: '派对', desc: '人越多越好玩', count: 39, color: '#F472B6', preview: A('covers/void-basket.webp') },
+  { slug: 'music', name: '音乐', desc: '跟着节拍走', count: 44, color: '#6C8CFF', preview: A('covers/circuit-bloom.webp') },
 ];
 
 /** 引擎不是枚举：上传页从这里取候选，但允许填任意值（"其它"），后端存字符串。 */
