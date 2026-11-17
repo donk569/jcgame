@@ -1,0 +1,2 @@
+# Netlify / Cloudflare Pages：SPA 回退，保证 /explore、/game/xxx 这类前端路由能直接打开
+/*  /index.html  200
