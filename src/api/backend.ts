@@ -347,3 +347,62 @@ export async function replyComment(id: string, reply: string): Promise<void> {
 }
 
 export { HAS_BACKEND };
+
+/* ------------------------------------------------------------------ */
+/* 文件存储（Supabase Storage，桶名 games，公开读）                    */
+/* ------------------------------------------------------------------ */
+
+const BUCKET = 'games';
+
+export interface UploadResult {
+  /** 可直接访问的公开地址 */
+  url: string;
+  /** 桶内路径，删除时用 */
+  path: string;
+  bytes: number;
+}
+
+/**
+ * 上传一个文件到 games 桶。
+ * 路径规则：<用户id>/<时间戳>-<安全文件名>，避免同名覆盖。
+ * onProgress 用于驱动上传进度条（0–100）。
+ */
+export async function uploadFile(
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<UploadResult> {
+  if (!supabase) throw new Error('未配置后端');
+
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id ?? 'anon';
+  const safe = file.name.replace(/[^\w.\-]+/g, '_');
+  const path = `${uid}/${Date.now()}-${safe}`;
+
+  // Supabase JS 不提供上传进度事件，用一个平滑推进的假进度保证用户体验
+  onProgress?.(5);
+  let fake = 5;
+  const timer = window.setInterval(() => {
+    fake = Math.min(fake + Math.random() * 12, 88);
+    onProgress?.(Math.round(fake));
+  }, 220);
+
+  try {
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+      cacheControl: '31536000',
+      upsert: false,
+      contentType: file.type || 'application/octet-stream',
+    });
+    if (error) throw error;
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    onProgress?.(100);
+    return { url: data.publicUrl, path, bytes: file.size };
+  } finally {
+    window.clearInterval(timer);
+  }
+}
+
+export async function removeFile(path: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.storage.from(BUCKET).remove([path]);
+  if (error) throw error;
+}

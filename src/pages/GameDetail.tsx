@@ -58,7 +58,7 @@ export default function GameDetail() {
 
   if (!game) return <NotFound />;
 
-  const shots = game.shots ?? [game.cover];
+  const shots = game.shots?.length ? game.shots : [game.cover];
   const isWeb = game.runMode === 'web';
 
   const share = async () => {
@@ -71,94 +71,114 @@ export default function GameDetail() {
     }
   };
 
+  const actions = (
+    <>
+      <motion.button
+        whileTap={{ scale: 0.92 }}
+        onClick={() => {
+          const on = slug ? store.toggleSaved(slug) : false;
+          toast.push(on ? '已收藏，去工作台看' : '已取消收藏', 'ok');
+        }}
+        className={`btn ${saved ? 'btn-primary' : 'btn-ghost'} btn-icon`}
+        aria-pressed={saved}
+        aria-label={saved ? '取消收藏' : '收藏'}
+      >
+        <motion.span animate={saved ? { scale: [1, 1.25, 1] } : {}} transition={{ duration: 0.3 }}>
+          <Bookmark size={17} weight={saved ? 'fill' : 'regular'} />
+        </motion.span>
+      </motion.button>
+      <motion.button
+        whileTap={{ scale: 0.92 }}
+        onClick={() => {
+          if (slug) store.toggleLiked(slug);
+        }}
+        className="btn btn-ghost h-[46px] gap-2 px-4"
+        aria-pressed={liked}
+        aria-label="点赞"
+      >
+        <motion.span
+          animate={liked ? { scale: [1, 1.35, 0.95, 1] } : { scale: 1 }}
+          transition={{ duration: 0.42, ease: [0.22, 0.68, 0, 1] }}
+          className={liked ? 'text-warm' : ''}
+        >
+          <Heart size={17} weight={liked ? 'fill' : 'regular'} />
+        </motion.span>
+        <span className="mono">{formatCount(game.likes + (liked ? 1 : 0))}</span>
+      </motion.button>
+      <button onClick={share} className="btn btn-ghost btn-icon" aria-label="分享">
+        <ShareNetwork size={17} />
+      </button>
+    </>
+  );
+
+  const meta = (
+    <>
+      <div className="flex flex-wrap items-center gap-2.5">
+        {game.categories.map((c) => (
+          <Link
+            key={c}
+            to={`/explore?category=${encodeURIComponent(c)}`}
+            className="text-[12px] text-bone-dim transition-colors hover:text-brand"
+          >
+            {c}
+          </Link>
+        ))}
+        <span className="h-3 w-px bg-line" aria-hidden="true" />
+        <span className={`text-[12px] ${isWeb ? 'text-teal' : 'text-warm'}`}>
+          {isWeb ? '网页试玩' : '客户端下载'}
+        </span>
+      </div>
+      <h1 className="mt-3 text-[clamp(2.1rem,4.4vw,3.6rem)] font-extrabold leading-none tracking-[-0.04em] text-bone">
+        {game.titleCn}
+      </h1>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] text-bone-dim">
+        <Link
+          to={`/creator/${game.studio.handle}`}
+          className="link-underline font-medium hover:text-brand"
+        >
+          {game.studio.name}
+        </Link>
+        <span className="text-bone-dim/40">/</span>
+        <span className="mono text-muted">{game.title}</span>
+        <span className="text-bone-dim/40">/</span>
+        <span className="mono text-muted">v{game.version}</span>
+      </div>
+      <p className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-bone-dim">
+        {game.tagline}
+      </p>
+    </>
+  );
+
   return (
     <div className="pb-10">
-      {/* ---------- 主视觉：大圆角容器 + 压字 ---------- */}
+      {/* ---------- 主视觉：有横版主视觉就铺满，只有竖封面就左右并排 ---------- */}
       <div className="wrap pt-2">
-        <div className="relative overflow-hidden rounded-none border border-line-soft">
-          <img
-            src={game.keyart ?? game.cover}
-            alt=""
-            className="h-[340px] w-full object-cover md:h-[440px] lg:h-[500px]"
-          />
-          {/* 单层渐变就够：下方压字区深，上方留给画面 */}
-          <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/55 to-transparent" />
-
-          <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-5 p-5 md:p-8">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {game.categories.map((c) => (
-                  <Link
-                    key={c}
-                    to={`/explore?category=${encodeURIComponent(c)}`}
-                    className="chip chip-glass text-[12px]"
-                  >
-                    {c}
-                  </Link>
-                ))}
-                <span className={`chip chip-glass text-[12px] ${isWeb ? 'text-teal' : 'text-warm'}`}>
-                  {isWeb ? '网页试玩' : '客户端下载'}
-                </span>
-              </div>
-              <h1 className="mt-3 text-[clamp(2.1rem,4.4vw,3.6rem)] font-extrabold leading-none tracking-[-0.04em] text-bone">
-                {game.titleCn}
-              </h1>
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] text-bone-dim">
-                <Link
-                  to={`/creator/${game.studio.handle}`}
-                  className="link-underline font-medium hover:text-brand"
-                >
-                  {game.studio.name}
-                </Link>
-                <span className="text-bone-dim/40">/</span>
-                <span className="mono text-muted">{game.title}</span>
-                <span className="text-bone-dim/40">/</span>
-                <span className="mono text-muted">v{game.version}</span>
-              </div>
-              <p className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-bone-dim">
-                {game.tagline}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                onClick={() => {
-                  const on = slug ? store.toggleSaved(slug) : false;
-                  toast.push(on ? '已收藏，去工作台看' : '已取消收藏', 'ok');
-                }}
-                className={`btn ${saved ? 'btn-primary' : 'btn-ghost'} btn-icon`}
-                aria-pressed={saved}
-                aria-label={saved ? '取消收藏' : '收藏'}
-              >
-                <motion.span animate={saved ? { scale: [1, 1.25, 1] } : {}} transition={{ duration: 0.3 }}>
-                  <Bookmark size={17} weight={saved ? 'fill' : 'regular'} />
-                </motion.span>
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                onClick={() => {
-                  if (slug) store.toggleLiked(slug);
-                }}
-                className="btn btn-ghost h-[46px] gap-2 px-4"
-                aria-pressed={liked}
-                aria-label="点赞"
-              >
-                <motion.span
-                  animate={liked ? { scale: [1, 1.35, 0.95, 1] } : { scale: 1 }}
-                  transition={{ duration: 0.42, ease: [0.22, 0.68, 0, 1] }}
-                  className={liked ? 'text-warm' : ''}
-                >
-                  <Heart size={17} weight={liked ? 'fill' : 'regular'} />
-                </motion.span>
-                <span className="mono">{formatCount(game.likes + (liked ? 1 : 0))}</span>
-              </motion.button>
-              <button onClick={share} className="btn btn-ghost btn-icon" aria-label="分享">
-                <ShareNetwork size={17} />
-              </button>
+        {game.keyart ? (
+          <div className="relative overflow-hidden">
+            <img
+              src={game.keyart}
+              alt=""
+              className="h-[340px] w-full object-cover md:h-[440px] lg:h-[500px]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/55 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-5 p-5 md:p-8">
+              <div className="min-w-0">{meta}</div>
+              <div className="flex items-center gap-2">{actions}</div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="grid gap-7 pt-3 md:grid-cols-[238px_1fr] md:gap-10">
+            <img
+              src={game.cover}
+              alt={`${game.titleCn} 封面`}
+              className="w-full max-w-[238px] object-cover"
+            />
+            <div className="flex min-w-0 flex-col justify-center">
+              {meta}
+              <div className="mt-7 flex items-center gap-2">{actions}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="wrap mt-5 grid-12">
@@ -207,7 +227,14 @@ export default function GameDetail() {
                 </div>
                 <button
                   className="btn btn-primary shrink-0"
-                  onClick={() => toast.push('开始下载（演示环境不会真的下载）', 'ok')}
+                  onClick={() => {
+                    const url = game.download?.file;
+                    if (url && /^https?:/.test(url)) {
+                      window.open(url, '_blank', 'noopener');
+                    } else {
+                      toast.push('这个版本还没挂下载地址');
+                    }
+                  }}
                 >
                   <DownloadSimple size={15} weight="bold" /> 下载
                 </button>
@@ -226,6 +253,7 @@ export default function GameDetail() {
                 放大看
               </button>
             </div>
+            {(game.shots?.length ?? 0) > 0 && (
             <div className="relative overflow-hidden bg-ink-900">
               <AnimatePresence mode="wait">
                 <motion.img
@@ -240,6 +268,7 @@ export default function GameDetail() {
                 />
               </AnimatePresence>
             </div>
+            )}
             {shots.length > 1 && (
               <div className="mt-2 flex gap-2">
                 {shots.map((src, i) => (
@@ -257,7 +286,7 @@ export default function GameDetail() {
                 ))}
               </div>
             )}
-            {!game.shots && (
+            {(!game.shots || game.shots.length === 0) && (
               <p className="mt-2 text-[12px] text-muted-dim">
                 开发者只上传了封面，暂无游戏内截图。
               </p>
@@ -371,11 +400,15 @@ export default function GameDetail() {
               </dl>
             </div>
 
-            <div className="rounded-none border border-line-soft p-5">
-              <div className="mono mb-2.5 text-muted-dim">标签</div>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="border-t border-line-soft pt-5">
+              <div className="mono mb-3 text-muted-dim">标签</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {game.tags.map((t) => (
-                  <Link key={t} to={`/explore?tag=${encodeURIComponent(t)}`} className="chip">
+                  <Link
+                    key={t}
+                    to={`/explore?tag=${encodeURIComponent(t)}`}
+                    className="text-[12.5px] text-bone-dim transition-colors hover:text-brand"
+                  >
                     {t}
                   </Link>
                 ))}
