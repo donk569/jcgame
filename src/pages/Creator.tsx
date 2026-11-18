@@ -4,19 +4,22 @@ import { motion } from 'framer-motion';
 import { ArrowUpRight, Check } from '@phosphor-icons/react';
 import { GamePost } from '@/components/GameCard';
 import { useToast } from '@/components/Toast';
-import { formatCount, gamesByCreator, getCreator } from '@/data/games';
+import { useAppStore } from '@/store/AppStore';
+import { formatCount } from '@/lib/format';
+import { useCreator, useGamesByCreator } from '@/hooks/useData';
 import NotFound from './NotFound';
 
 export default function Creator() {
   const { handle } = useParams();
-  const creator = handle ? getCreator(handle) : undefined;
+  const creator = useCreator(handle);
   const toast = useToast();
+  const store = useAppStore();
+  const following = handle ? store.isFollowing(handle) : false;
   const [tab, setTab] = useState<'works' | 'about'>('works');
-  const [following, setFollowing] = useState(false);
 
   if (!creator) return <NotFound />;
 
-  const works = gamesByCreator(creator.handle);
+  const works = useGamesByCreator(creator.handle);
   const totalPlays = works.reduce((s, g) => s + g.plays, 0);
 
   return (
@@ -66,8 +69,8 @@ export default function Creator() {
                 whileTap={{ scale: 0.96 }}
                 className={`btn btn-sm ${following ? 'btn-ghost' : 'btn-primary'}`}
                 onClick={() => {
-                  setFollowing((v) => !v);
-                  toast.push(following ? '已取消关注' : `已关注 ${creator.name}`, 'ok');
+                  const on = handle ? store.toggleFollowing(handle) : false;
+                  toast.push(on ? `已关注 ${creator.name}` : '已取消关注', 'ok');
                 }}
                 aria-pressed={following}
               >

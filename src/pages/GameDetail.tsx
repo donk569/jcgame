@@ -15,18 +15,23 @@ import {
 import { GamePost } from '@/components/GameCard';
 import { PlayModal } from '@/components/PlayModal';
 import { useToast } from '@/components/Toast';
-import { formatBytes, formatCount, games, getCreator, getGame } from '@/data/games';
+import { useAppStore } from '@/store/AppStore';
+import { formatBytes, formatCount } from '@/lib/format';
+import { useGame, useCreator, useGames } from '@/hooks/useData';
 import NotFound from './NotFound';
 
 export default function GameDetail() {
   const { slug } = useParams();
   const [params, setParams] = useSearchParams();
-  const game = slug ? getGame(slug) : undefined;
+  const game = useGame(slug);
+  const games = useGames();
+  const creator = useCreator(game?.studio.handle);
   const toast = useToast();
+  const store = useAppStore();
+  const saved = slug ? store.isSaved(slug) : false;
+  const liked = slug ? store.isLiked(slug) : false;
 
   const [playOpen, setPlayOpen] = useState(false);
-  const [liked, setLiked] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [shot, setShot] = useState(0);
   const [lightbox, setLightbox] = useState(false);
 
@@ -53,7 +58,6 @@ export default function GameDetail() {
 
   if (!game) return <NotFound />;
 
-  const creator = getCreator(game.studio.handle);
   const shots = game.shots ?? [game.cover];
   const isWeb = game.runMode === 'web';
 
@@ -120,8 +124,8 @@ export default function GameDetail() {
               <motion.button
                 whileTap={{ scale: 0.92 }}
                 onClick={() => {
-                  setSaved((v) => !v);
-                  toast.push(saved ? '已取消收藏' : '已收藏，去工作台看', 'ok');
+                  const on = slug ? store.toggleSaved(slug) : false;
+                  toast.push(on ? '已收藏，去工作台看' : '已取消收藏', 'ok');
                 }}
                 className={`btn ${saved ? 'btn-primary' : 'btn-ghost'} btn-icon`}
                 aria-pressed={saved}
@@ -134,7 +138,7 @@ export default function GameDetail() {
               <motion.button
                 whileTap={{ scale: 0.92 }}
                 onClick={() => {
-                  setLiked((v) => !v);
+                  if (slug) store.toggleLiked(slug);
                 }}
                 className="btn btn-ghost h-[46px] gap-2 px-4"
                 aria-pressed={liked}

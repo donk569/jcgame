@@ -7,7 +7,8 @@ import {
   ShieldCheck,
   X,
 } from '@phosphor-icons/react';
-import { Game, formatBytes } from '@/data/games';
+import type { Game } from '@/api/types';
+import { formatBytes } from '@/lib/format';
 
 type Phase = 'loading' | 'running' | 'error';
 

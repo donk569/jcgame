@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Play, ArrowUpRight } from '@phosphor-icons/react';
-import { Game, formatCount } from '@/data/games';
+import type { Game } from '@/api/types';
+import { formatCount } from '@/lib/format';
 
 /** 图片打底的展示卡：文字压在图上，悬停浮起并露出运行方式 */
 export function GamePost({

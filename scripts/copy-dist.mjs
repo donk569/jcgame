@@ -7,11 +7,16 @@ import { join } from 'node:path';
  * 改成「覆盖复制 + 逐个清理 dist 里已不存在的旧文件」。
  */
 
+// dist/ 与 site/ 都可能带 .git（gh-pages 部署留下的独立仓库），
+// 复制时跳过它，否则会撞 git 内部对象文件导致 EPERM
+const skipGit = (src) => !src.split(/[\\/]/).includes('.git');
+
 mkdirSync('site', { recursive: true });
-cpSync('dist', 'site', { recursive: true, force: true });
+cpSync('dist', 'site', { recursive: true, force: true, filter: skipGit });
 
 function prune(dir) {
   for (const name of readdirSync(dir)) {
+    if (name === '.git') continue; // 不要把 gh-pages 的仓库带进 site/
     const abs = join(dir, name);
     const rel = abs.slice('site'.length + 1).replace(/\\/g, '/');
     const inDist = existsSync(join('dist', rel));

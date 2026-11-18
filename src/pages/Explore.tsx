@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FunnelSimple, MagnifyingGlass, X } from '@phosphor-icons/react';
 import { GamePost } from '@/components/GameCard';
-import { categories, engines, games } from '@/data/games';
+import { getAllTags } from '@/api';
+import { useGames, useCategories, useEngines } from '@/hooks/useData';
 
 const sorts = [
   { value: 'recommended', label: '推荐' },
@@ -12,9 +13,12 @@ const sorts = [
   { value: 'name', label: '名称' },
 ] as const;
 
-const allTags = Array.from(new Set(games.flatMap((g) => g.tags))).sort();
+const allTags = getAllTags();
 
 export default function Explore() {
+  const games = useGames();
+  const categories = useCategories();
+  const engines = useEngines();
   const [params, setParams] = useSearchParams();
   const [visible, setVisible] = useState(9);
   const [sheet, setSheet] = useState(false);

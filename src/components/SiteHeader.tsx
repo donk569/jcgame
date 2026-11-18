@@ -5,7 +5,7 @@ import { List, MagnifyingGlass, X } from '@phosphor-icons/react';
 import { Logo } from './Logo';
 import { SearchDialog } from './SearchDialog';
 import { useGameSearch } from '@/hooks/useGameSearch';
-import { currentUser } from '@/data/games';
+import { useCurrentUser } from '@/hooks/useData';
 
 const nav = [
   { to: '/explore', label: '探索' },
@@ -13,6 +13,7 @@ const nav = [
 ];
 
 export function SiteHeader() {
+  const currentUser = useCurrentUser();
   const [scrolled, setScrolled] = useState(false);
   const [inlineOpen, setInlineOpen] = useState(false);
   const [q, setQ] = useState('');

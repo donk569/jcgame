@@ -4,7 +4,13 @@ import { animate, motion, useReducedMotion } from 'framer-motion';
 import { DotsThree, Heart } from '@phosphor-icons/react';
 import { GamePost } from '@/components/GameCard';
 import { useToast } from '@/components/Toast';
-import { currentUser, formatBytes, formatCount, games, gamesByCreator } from '@/data/games';
+import { getGames, getCurrentUser } from '@/api';
+import { formatBytes, formatCount } from '@/lib/format';
+import { useGamesByCreator } from '@/hooks/useData';
+import { useAppStore } from '@/store/AppStore';
+
+const games = getGames();
+const currentUser = getCurrentUser();
 
 /* ------------------------------------------------------------------ */
 /* 演示数据（正式环境由接口返回）                                      */
@@ -108,11 +114,13 @@ export default function Dashboard() {
   });
   const [notify, setNotify] = useState({ comment: true, update: true, weekly: false });
 
-  const mine = gamesByCreator(currentUser.handle);
+  const store = useAppStore();
+  const mine = useGamesByCreator(currentUser.handle);
   const featured = mine[0];
   const others = mine.slice(1);
-  const saved = [games[0], games[6], games[2]];
-  const liked = [games[3], games[8], games[1], games[10]];
+  // 收藏 / 点赞列表跟随全局状态，空列表时走页面里已有的空状态
+  const saved = games.filter((g) => store.saved.includes(g.slug));
+  const liked = games.filter((g) => store.liked.includes(g.slug));
   const totalPlays = mine.reduce((s, g) => s + g.plays, 0);
   const totalLikes = mine.reduce((s, g) => s + g.likes, 0);
 
@@ -329,17 +337,31 @@ export default function Dashboard() {
         {tab === 'saved' && (
           <section>
             <SectionRule title="收藏" accent="var(--color-brand)" count={saved.length} />
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-              {saved.map((g) => (
-                <GamePost key={g.slug} game={g} ratio="portrait" />
-              ))}
-            </div>
+            {saved.length === 0 ? (
+              <div className="mt-4 border border-line-soft px-6 py-12 text-center">
+                <p className="text-[13px] text-muted">还没有收藏任何游戏。</p>
+                <Link to="/explore" className="link-underline mt-2 inline-block text-[12.5px] text-bone-dim hover:text-bone">
+                  去探索页看看 →
+                </Link>
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+                {saved.map((g) => (
+                  <GamePost key={g.slug} game={g} ratio="portrait" />
+                ))}
+              </div>
+            )}
           </section>
         )}
 
         {tab === 'liked' && (
           <section className="max-w-[860px]">
             <SectionRule title="点赞" accent="var(--color-warm)" count={liked.length} />
+            {liked.length === 0 && (
+              <p className="mt-4 border border-line-soft px-6 py-10 text-center text-[13px] text-muted">
+                还没有点赞。喜欢的游戏点一下爱心就会出现在这里。
+              </p>
+            )}
             <div className="mt-1">
               {liked.map((g) => (
                 <Link

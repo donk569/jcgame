@@ -12,18 +12,19 @@ import {
   VideoCamera,
 } from '@phosphor-icons/react';
 import { useToast } from '@/components/Toast';
-import { categories, currentUser, engineBuildGuide, engines, formatBytes } from '@/data/games';
+import { getCategories, getEngines, getEngineBuildGuide, getCurrentUser } from '@/api';
+import { formatBytes } from '@/lib/format';
 
 type Picked = { name: string; size: number; url?: string };
 
-const engineOptions = [...engines.map((e) => e.name), 'GameMaker', 'RPG Maker', '其它引擎'];
+const engineOptions = [...getEngines().map((e) => e.name), 'GameMaker', 'RPG Maker', '其它引擎'];
 const steps = ['基本信息', '媒体', '运行与技术', '检查并发布'];
 
 const initial = {
   title: '',
   titleEn: '',
   tagline: '',
-  developer: currentUser.name,
+  developer: getCurrentUser().name,
   cats: [] as string[],
   tags: [] as string[],
   cover: null as Picked | null,
@@ -41,6 +42,8 @@ const initial = {
 
 export default function Upload() {
   const toast = useToast();
+  const categories = getCategories();
+  const engineBuildGuide = getEngineBuildGuide();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});

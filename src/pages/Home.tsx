@@ -20,14 +20,13 @@ import {
 import { GamePost, GameRow } from '@/components/GameCard';
 import { Reveal } from '@/components/Reveal';
 import { SectionHead, TextLink } from '@/components/SectionHead';
-import {
-  categories,
-  creators,
-  engines,
-  formatCount,
-  games,
-  gamesByCreator,
-} from '@/data/games';
+import { getCategories, getCreators, getEngines, getGames } from '@/api';
+import { formatCount } from '@/lib/format';
+
+const games = getGames();
+const categories = getCategories();
+const creators = getCreators();
+const engines = getEngines();
 
 const byNew = [...games].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 const featured = games[0];
@@ -478,7 +477,7 @@ export default function Home() {
                   {c.name.slice(0, 1)}
                 </span>
                 <span className="mono text-[10px] text-note-ink/55">
-                  {gamesByCreator(c.handle).length} 款
+                  {games.filter((g) => g.studio.handle === c.handle).length} 款
                 </span>
               </div>
               <div className="serif mt-6 text-[15px] leading-none">{c.name}</div>
