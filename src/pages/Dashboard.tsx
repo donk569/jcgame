@@ -506,6 +506,7 @@ export default function Dashboard() {
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => {
+                      void store.signOut();
                       store.logout();
                       toast.push('已退出登录', 'ok');
                     }}

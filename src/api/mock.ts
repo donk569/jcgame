@@ -7,7 +7,8 @@ import type {
 } from './types';
 
 /** 静态资源路径跟随部署 base（根路径部署时结果与原来一致） */
-export const A = (p: string) => `${import.meta.env.BASE_URL}art/${p}`;
+const BASE = (import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/';
+export const A = (p: string) => `${BASE}art/${p}`;
 
 export const mockGames: Game[] = [
   {

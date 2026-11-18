@@ -91,3 +91,46 @@ export interface CurrentUser {
   bio: string;
   joined: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* 用户侧实体（原本放在 store 里，类型统一收敛到这里）                */
+/* ------------------------------------------------------------------ */
+
+export interface DraftForm {
+  title: string;
+  titleEn: string;
+  tagline: string;
+  developer: string;
+  cats: string[];
+  tags: string[];
+  coverName: string;
+  shotNames: string[];
+  runMode: 'web' | 'download';
+  engine: string;
+  engineOther: string;
+  version: string;
+  changelog: string;
+  savedAt: string;
+}
+
+export interface Draft {
+  id: string;
+  form: DraftForm;
+  progress: number;
+}
+
+export interface Comment {
+  id: string;
+  name: string;
+  text: string;
+  time: string;
+  target: string;
+  unread: boolean;
+  reply?: string;
+}
+
+export interface Profile {
+  name: string;
+  bio: string;
+  site: string;
+}

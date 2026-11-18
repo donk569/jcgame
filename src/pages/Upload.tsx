@@ -13,7 +13,8 @@ import {
 } from '@phosphor-icons/react';
 import { useToast } from '@/components/Toast';
 import { useSearchParams } from 'react-router-dom';
-import { useAppStore, type DraftForm } from '@/store/AppStore';
+import { useAppStore } from '@/store/AppStore';
+import type { DraftForm } from '@/api/types';
 import { getCategories, getEngines, getEngineBuildGuide, getCurrentUser } from '@/api';
 import { formatBytes } from '@/lib/format';
 

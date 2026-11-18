@@ -14,7 +14,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Game } from '@/api/types';
+import type { Game, Draft, DraftForm, Comment, Profile } from '@/api/types';
+import * as backend from '@/api/backend';
+import * as auth from '@/api/auth';
 
 const KEY = 'jcgame:state:v2';
 
@@ -23,46 +25,6 @@ const SEED_COMMENTS: Comment[] = [
   { id: 'seed-2', name: 'kk_1993', time: '昨天', target: '半光 / 整体', text: '26 关打完了，最后一关的存档点位置有点劝退，其他都好。', unread: true },
   { id: 'seed-3', name: 'NINE', time: '11-14', target: '半光 / 音效', text: '雨声那层做得太好了，戴耳机玩完全是另一种体验。', unread: false },
 ];
-
-/** 上传表单的持久化形态（封面等文件只存名字，原型阶段不存真实文件） */
-export interface DraftForm {
-  title: string;
-  titleEn: string;
-  tagline: string;
-  developer: string;
-  cats: string[];
-  tags: string[];
-  coverName: string;
-  shotNames: string[];
-  runMode: 'web' | 'download';
-  engine: string;
-  engineOther: string;
-  version: string;
-  changelog: string;
-  savedAt: string;
-}
-
-export interface Draft {
-  id: string;
-  form: DraftForm;
-  progress: number;
-}
-
-export interface Comment {
-  id: string;
-  name: string;
-  text: string;
-  time: string;
-  target: string;
-  unread: boolean;
-  reply?: string;
-}
-
-export interface Profile {
-  name: string;
-  bio: string;
-  site: string;
-}
 
 interface PersistedState {
   saved: string[]; // game slug
@@ -134,12 +96,66 @@ interface StoreValue extends PersistedState {
   replyComment: (id: string, reply: string) => void;
   login: (handle: string, name: string) => void;
   logout: () => void;
+  signIn: (email: string, password: string) => Promise<{ handle: string; name: string }>;
+  signUp: (email: string, password: string) => Promise<{ handle: string; name: string }>;
+  signInGithub: () => Promise<void>;
+  signOut: () => Promise<void>;
+  /** 后端会话（Supabase Auth 用户），本地演示登录时为 null */
+  backendUserId: string | null;
+  /** 从后端拉取该用户的收藏/点赞/关注/草稿 */
+  syncFromBackend: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(load);
+  const [backendUserId, setBackendUserId] = useState<string | null>(null);
+
+  // Supabase 会话：登录后把 user_id 记下来，写操作同步落库
+  useEffect(() => {
+    let alive = true;
+    void auth.getSession().then((u) => {
+      if (!alive) return;
+      if (u) {
+        setBackendUserId(u.id);
+        void hydrate(u.id);
+      }
+    });
+    const off = auth.onAuthChange((u) => {
+      if (!alive) return;
+      setBackendUserId(u?.id ?? null);
+      if (u) void hydrate(u.id);
+    });
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+
+  // 从后端拉该用户的数据，覆盖本地同名状态
+  const hydrate = useCallback(async (userId: string) => {
+    try {
+      const [ug, following, drafts] = await Promise.all([
+        backend.fetchUserGames(userId),
+        backend.fetchFollowing(userId),
+        backend.fetchDrafts(),
+      ]);
+      setState((prev) => {
+        const next: PersistedState = {
+          ...prev,
+          saved: ug.saved,
+          liked: ug.liked,
+          following,
+          drafts: drafts.length ? drafts : prev.drafts,
+        };
+        persist(next);
+        return next;
+      });
+    } catch {
+      /* 后端不可用时保留本地状态 */
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -160,6 +176,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  /** 有后端会话时，把写操作同步到 Supabase（失败不影响本地） */
+  const sync = useCallback(
+    (fn: () => Promise<void>) => {
+      if (!backendUserId) return;
+      void fn().catch(() => {});
+    },
+    [backendUserId],
+  );
+
   const makeToggle = useCallback(
     (field: 'saved' | 'liked' | 'following') =>
       (key: string): boolean => {
@@ -168,21 +193,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           ...prev,
           [field]: next ? [...prev[field], key] : prev[field].filter((x) => x !== key),
         }));
+        if (backendUserId) {
+          sync(() =>
+            field === 'following'
+              ? backend.setFollowing(backendUserId, key, next)
+              : backend.setUserGame(backendUserId, key, field, next),
+          );
+        }
         return next;
       },
-    [state, commit],
+    [state, commit, backendUserId, sync],
   );
 
   const value = useMemo<StoreValue>(
     () => ({
       ...state,
+      backendUserId,
+      syncFromBackend: () => (backendUserId ? hydrate(backendUserId) : Promise.resolve()),
       toggleSaved: makeToggle('saved'),
       toggleLiked: makeToggle('liked'),
       toggleFollowing: makeToggle('following'),
       isSaved: (slug) => state.saved.includes(slug),
       isLiked: (slug) => state.liked.includes(slug),
       isFollowing: (handle) => state.following.includes(handle),
-      saveDraft: (form, progress) =>
+      saveDraft: (form, progress) => {
         commit((prev) => {
           // 同名草稿覆盖，不重复堆
           const rest = prev.drafts.filter((d) => d.form.title !== form.title || !form.title);
@@ -193,28 +227,61 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               ...rest,
             ].slice(0, 12),
           };
-        }),
-      removeDraft: (id) =>
-        commit((prev) => ({ ...prev, drafts: prev.drafts.filter((d) => d.id !== id) })),
-      addPublished: (game) =>
+        });
+        if (backendUserId) sync(() => backend.insertDraft(form, progress));
+      },
+      removeDraft: (id) => {
+        commit((prev) => ({ ...prev, drafts: prev.drafts.filter((d) => d.id !== id) }));
+        if (backendUserId) sync(() => backend.deleteDraft(id));
+      },
+      addPublished: (game) => {
         commit((prev) => ({
           ...prev,
           published: [game, ...prev.published.filter((g) => g.slug !== game.slug)],
-        })),
-      saveProfile: (profile) => commit((prev) => ({ ...prev, profile })),
+        }));
+        if (backendUserId) sync(() => backend.insertGame(game, backendUserId));
+      },
+      saveProfile: (profile) => {
+        commit((prev) => ({ ...prev, profile }));
+        if (backendUserId) {
+          const handle = state.user?.handle ?? 'player';
+          sync(() => backend.saveProfile(backendUserId, handle, profile));
+        }
+      },
       addComment: (comment) =>
         commit((prev) => ({ ...prev, comments: [comment, ...prev.comments] })),
-      replyComment: (id, reply) =>
+      replyComment: (id, reply) => {
         commit((prev) => ({
           ...prev,
           comments: prev.comments.map((c) =>
             c.id === id ? { ...c, reply, unread: false } : c,
           ),
-        })),
+        }));
+        if (backendUserId) sync(() => backend.replyComment(id, reply));
+      },
       login: (handle, name) => commit((prev) => ({ ...prev, user: { handle, name } })),
+      // 真后端登录（邮箱密码 / GitHub OAuth）
+      signIn: async (email: string, password: string) => {
+        const u = await auth.signInWithEmail(email, password);
+        commit((prev) => ({ ...prev, user: { handle: u.handle, name: u.name } }));
+        await hydrate(u.id);
+        return u;
+      },
+      signUp: async (email: string, password: string) => {
+        const u = await auth.signUpWithEmail(email, password);
+        commit((prev) => ({ ...prev, user: { handle: u.handle, name: u.name } }));
+        return u;
+      },
+      signInGithub: async () => {
+        await auth.signInWithGithub();
+      },
+      signOut: async () => {
+        await auth.signOut();
+        commit((prev) => ({ ...prev, user: null }));
+      },
       logout: () => commit((prev) => ({ ...prev, user: null })),
     }),
-    [state, makeToggle, commit],
+    [state, makeToggle, commit, backendUserId, hydrate],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
