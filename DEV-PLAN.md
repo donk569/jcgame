@@ -7,7 +7,9 @@
 > - ✅ P0-1 数据层拆三层　✅ P0-2 数据 hooks + 七页迁移　✅ P0-5 后端开关
 > - ✅ P1-6 登录页 + 路由守卫　✅ P1-8 资料持久化　✅ P1-9 关注持久化
 > - ✅ P2-11 发布链路　✅ P2-12 草稿 CRUD　✅ P3-17 收藏点赞　✅ P3-18 评论回复
-> - ⬜ P0-3 请求层 loading/error 态　⬜ P2-10 真实文件上传　⬜ P2-13 作品管理　⬜ P2-14 版本日志
+> - ✅ P1-6 Supabase 认证（邮箱密码 + GitHub OAuth）　✅ P0-3 双模式回落 + 4s 超时
+> - ⬜ P2-10 真实文件上传　⬜ P2-13 作品管理　⬜ P2-14 版本日志
+> - ⬜ **建表（待用户在 Supabase Dashboard 执行 supabase/init-all.sql）**
 > - ⬜ P3-15 真试玩　⬜ P3-16 下载分发　⬜ P3-19 服务端搜索　⬜ P4 全部
 >
 > **目前所有数据存在浏览器 localStorage**（换设备看不到、清缓存会丢）。
@@ -99,6 +101,13 @@
 | 24 | 移动端回归：6 页 × 390px | 无横向溢出，无 console error |
 
 ---
+
+## Supabase 已接入（2026-11-18）
+
+- 项目 `hvnfewrdzvhpazfwducc`，配置在 `.env.local`（不入库）
+- **待办：在 Dashboard → SQL Editor 执行 `supabase/init-all.sql`**（建表 + RLS + 种子）
+- 详细步骤与排错见 `supabase/README.md`
+- 注意：`*.supabase.co` 国内直连被干扰 → 已做自动回落，访客不会白屏
 
 ## 开工前要拍板的四件事
 
