@@ -105,39 +105,49 @@ alter table public.user_games enable row level security;
 alter table public.follows   enable row level security;
 
 -- 公开可读
-create policy "profiles 公开可读"  on public.profiles  for select using (true);
-create policy "creators 公开可读"  on public.creators  for select using (true);
-create policy "games 公开可读"     on public.games     for select using (true);
-create policy "comments 公开可读"  on public.comments  for select using (true);
+drop policy if exists "profiles 公开可读" on public.profiles;
+create policy "profiles 公开可读" on public.profiles  for select using (true);
+drop policy if exists "creators 公开可读" on public.creators;
+create policy "creators 公开可读" on public.creators  for select using (true);
+drop policy if exists "games 公开可读" on public.games;
+create policy "games 公开可读" on public.games     for select using (true);
+drop policy if exists "comments 公开可读" on public.comments;
+create policy "comments 公开可读" on public.comments  for select using (true);
 
 -- 本人可写
-create policy "本人改资料" on public.profiles
-  for update using (auth.uid() = id) with check (auth.uid() = id);
+drop policy if exists "本人改资料" on public.profiles;
+create policy "本人改资料" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
 
+drop policy if exists "登录后可建档" on public.profiles;
 create policy "登录后可建档" on public.profiles
   for insert with check (auth.uid() = id);
 
 -- 发布作品：登录用户可以插入，且 owner 必须是自己
+drop policy if exists "登录后可发布作品" on public.games;
 create policy "登录后可发布作品" on public.games
   for insert with check (auth.uid() = owner);
 
-create policy "作者可改自己作品" on public.games
-  for update using (auth.uid() = owner) with check (auth.uid() = owner);
+drop policy if exists "作者可改自己作品" on public.games;
+create policy "作者可改自己作品" on public.games for update using (auth.uid() = owner) with check (auth.uid() = owner);
 
 -- 草稿：只有本人
-create policy "本人看草稿" on public.drafts
-  for select using (auth.uid() = owner);
+drop policy if exists "本人看草稿" on public.drafts;
+create policy "本人看草稿" on public.drafts for select using (auth.uid() = owner);
+drop policy if exists "本人写草稿" on public.drafts;
 create policy "本人写草稿" on public.drafts
   for insert with check (auth.uid() = owner);
-create policy "本人改草稿" on public.drafts
-  for update using (auth.uid() = owner) with check (auth.uid() = owner);
+drop policy if exists "本人改草稿" on public.drafts;
+create policy "本人改草稿" on public.drafts for update using (auth.uid() = owner) with check (auth.uid() = owner);
+drop policy if exists "本人删草稿" on public.drafts;
 create policy "本人删草稿" on public.drafts
   for delete using (auth.uid() = owner);
 
 -- 留言：登录可发；作者本人或作品所有者可回复
+drop policy if exists "登录后可留言" on public.comments;
 create policy "登录后可留言" on public.comments
   for insert with check (auth.uid() = author);
 
+drop policy if exists "作品所有者可回复" on public.comments;
 create policy "作品所有者可回复" on public.comments
   for update using (
     auth.uid() = author
@@ -148,14 +158,21 @@ create policy "作品所有者可回复" on public.comments
   );
 
 -- 收藏点赞：仅本人
+drop policy if exists "本人读收藏" on public.user_games;
 create policy "本人读收藏" on public.user_games for select using (auth.uid() = user_id);
+drop policy if exists "本人写收藏" on public.user_games;
 create policy "本人写收藏" on public.user_games for insert with check (auth.uid() = user_id);
+drop policy if exists "本人改收藏" on public.user_games;
 create policy "本人改收藏" on public.user_games for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "本人删收藏" on public.user_games;
 create policy "本人删收藏" on public.user_games for delete using (auth.uid() = user_id);
 
 -- 关注：仅本人
+drop policy if exists "本人读关注" on public.follows;
 create policy "本人读关注" on public.follows for select using (auth.uid() = user_id);
+drop policy if exists "本人写关注" on public.follows;
 create policy "本人写关注" on public.follows for insert with check (auth.uid() = user_id);
+drop policy if exists "本人删关注" on public.follows;
 create policy "本人删关注" on public.follows for delete using (auth.uid() = user_id);
 
 -- =============================================================
