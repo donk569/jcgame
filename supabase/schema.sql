@@ -19,7 +19,7 @@ create table if not exists public.creators (
   name      text not null,
   bio       text not null default '',
   followers integer not null default 0,
-  since     date,
+  since     text,
   location  text default '',
   accent    text default '#8e6bff',
   links     jsonb not null default '[]'::jsonb
@@ -183,3 +183,24 @@ create index if not exists idx_games_categories  on public.games using gin (cate
 create index if not exists idx_games_tags        on public.games using gin (tags);
 create index if not exists idx_comments_game    on public.comments (game_slug);
 create index if not exists idx_drafts_owner      on public.drafts (owner);
+
+-- 兼容旧版本：since 曾被定义为 date，但数据是 "2025-03" 年月格式。
+-- 改成 text 后原样存取；已是 text 时本语句为 no-op，不会报错。
+alter table public.creators
+  alter column since type text using since::text;
+
+-- =============================================================
+-- 补充授权
+-- 用 SQL Editor 直接建表时，PostgREST 连接用的角色拿不到表权限，
+-- 需要显式授权（Dashboard 的 Table Editor 建表会自动做这一步，手写 SQL 不会）。
+-- =============================================================
+
+grant usage on schema public to anon, authenticated, service_role;
+
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
+
+alter default privileges in schema public
+  grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public
+  grant all on sequences to anon, authenticated, service_role;
