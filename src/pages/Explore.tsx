@@ -68,10 +68,14 @@ export default function Explore() {
         case 'name':
           return a.titleCn.localeCompare(b.titleCn, 'zh-CN');
         default:
-          return b.likes / Math.max(b.plays, 1) - a.likes / Math.max(a.plays, 1);
+          // 推荐 = 新作品优先，同等新旧再按互动率。0 数据的新游戏不该沉底。
+          return (
+            b.releasedAt.localeCompare(a.releasedAt) ||
+            b.likes / Math.max(b.plays, 1) - a.likes / Math.max(a.plays, 1)
+          );
       }
     });
-  }, [q, category, engine, mode, tag, sort]);
+  }, [games, q, category, engine, mode, tag, sort]);
 
   const activeFilters = [
     ['engine', engine],

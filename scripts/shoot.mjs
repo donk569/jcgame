@@ -13,6 +13,7 @@ const routes = [
   ['upload', '/upload'],
   ['creator', '/creator/mojian'],
   ['me', '/me'],
+  ['login', '/login'],
 ];
 
 const chrome = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -32,6 +33,20 @@ const browser = await puppeteer.launch({
 });
 
 const errors = [];
+
+// 工作台与发布页需要登录；截图前先走一次演示登录（写进固定 profile）
+{
+  const page = await browser.newPage();
+  await page.goto('http://127.0.0.1:5173/login', { waitUntil: 'load' });
+  await new Promise((r) => setTimeout(r, 700));
+  await page.evaluate(() => {
+    [...document.querySelectorAll('button')]
+      .find((b) => b.textContent?.includes('进入工作室'))
+      ?.click();
+  });
+  await new Promise((r) => setTimeout(r, 900));
+  await page.close();
+}
 
 async function waitImages(page) {
   await page.evaluate(() => {

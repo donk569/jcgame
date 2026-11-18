@@ -5,7 +5,7 @@ import { List, MagnifyingGlass, X } from '@phosphor-icons/react';
 import { Logo } from './Logo';
 import { SearchDialog } from './SearchDialog';
 import { useGameSearch } from '@/hooks/useGameSearch';
-import { useCurrentUser } from '@/hooks/useData';
+import { useAppStore } from '@/store/AppStore';
 
 const nav = [
   { to: '/explore', label: '探索' },
@@ -13,7 +13,7 @@ const nav = [
 ];
 
 export function SiteHeader() {
-  const currentUser = useCurrentUser();
+  const { user } = useAppStore();
   const [scrolled, setScrolled] = useState(false);
   const [inlineOpen, setInlineOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -207,14 +207,23 @@ export function SiteHeader() {
                 发布游戏
               </Link>
 
-              <Link
-                to="/me"
-                className="avatar-sq hidden h-[28px] w-[28px] border border-line text-[11px] transition-colors hover:border-brand hover:text-brand sm:grid"
-                aria-label="我的工作台"
-                title={currentUser.name}
-              >
-                {currentUser.name.slice(0, 1).toUpperCase()}
-              </Link>
+              {user ? (
+                <Link
+                  to="/me"
+                  className="avatar-sq hidden h-[28px] w-[28px] border border-line text-[11px] transition-colors hover:border-brand hover:text-brand sm:grid"
+                  aria-label="我的工作台"
+                  title={user.name}
+                >
+                  {user.name.slice(0, 1).toUpperCase()}
+                </Link>
+              ) : (
+                <Link
+                  to="/login"
+                  className="link-underline hidden text-[12.5px] text-muted hover:text-bone sm:inline"
+                >
+                  登录
+                </Link>
+              )}
 
               <button
                 onClick={() => setMenuOpen(true)}

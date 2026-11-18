@@ -12,6 +12,8 @@ import {
   VideoCamera,
 } from '@phosphor-icons/react';
 import { useToast } from '@/components/Toast';
+import { useSearchParams } from 'react-router-dom';
+import { useAppStore, type DraftForm } from '@/store/AppStore';
 import { getCategories, getEngines, getEngineBuildGuide, getCurrentUser } from '@/api';
 import { formatBytes } from '@/lib/format';
 
@@ -44,8 +46,32 @@ export default function Upload() {
   const toast = useToast();
   const categories = getCategories();
   const engineBuildGuide = getEngineBuildGuide();
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState(initial);
+  const store = useAppStore();
+  const [params] = useSearchParams();
+  const draftId = params.get('draft');
+  const restored = draftId ? store.drafts.find((d) => d.id === draftId) : undefined;
+
+  const [step, setStep] = useState(restored ? Math.min(Math.round((restored.progress / 100) * 3), 3) : 0);
+  const [form, setForm] = useState(() => {
+    if (!restored) return initial;
+    const f = restored.form;
+    return {
+      ...initial,
+      title: f.title,
+      titleEn: f.titleEn,
+      tagline: f.tagline,
+      developer: f.developer,
+      cats: f.cats,
+      tags: f.tags,
+      cover: f.coverName ? ({ name: f.coverName, size: 0, url: undefined } as Picked) : null,
+      shots: f.shotNames.map((name) => ({ name, size: 0, url: undefined }) as Picked),
+      runMode: f.runMode,
+      engine: f.engine,
+      engineOther: f.engineOther,
+      version: f.version,
+      changelog: f.changelog,
+    };
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tagInput, setTagInput] = useState('');
   const [published, setPublished] = useState(false);
@@ -639,7 +665,27 @@ export default function Upload() {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <button
               className="btn btn-quiet btn-sm"
-              onClick={() => toast.push('草稿已保存，随时可以在工作台继续', 'ok')}
+              onClick={() => {
+                const draftForm: DraftForm = {
+                  title: form.title,
+                  titleEn: form.titleEn,
+                  tagline: form.tagline,
+                  developer: form.developer,
+                  cats: form.cats,
+                  tags: form.tags,
+                  coverName: form.cover?.name ?? '',
+                  shotNames: form.shots.map((x) => x.name),
+                  runMode: form.runMode,
+                  engine: form.engine,
+                  engineOther: form.engineOther,
+                  version: form.version,
+                  changelog: form.changelog,
+                  savedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+                };
+                const filled = [form.title, form.tagline, form.cover, effectiveEngine, form.build].filter(Boolean).length;
+                store.saveDraft(draftForm, Math.round((filled / 5) * 100));
+                toast.push('草稿已保存，可在工作台继续', 'ok');
+              }}
             >
               保存草稿
             </button>
@@ -659,6 +705,34 @@ export default function Upload() {
                   disabled={doneCount < 4}
                   onClick={() => {
                     if (!validate(3)) return;
+                    const slug = (form.titleEn || form.title).trim().toLowerCase().replace(/[^a-z0-9一-龥]+/g, '-') || `game-${Date.now()}`;
+                    const now = new Date().toISOString().slice(0, 10);
+                    store.addPublished({
+                      slug,
+                      title: form.titleEn || form.title,
+                      titleCn: form.title,
+                      tagline: form.tagline,
+                      description: form.tagline ? [form.tagline] : [],
+                      studio: { name: store.profile?.name || getCurrentUser().name, handle: getCurrentUser().handle },
+                      engine: effectiveEngine,
+                      engineVersion: form.version,
+                      categories: form.cats,
+                      tags: form.tags,
+                      runMode: form.runMode,
+                      platforms: form.runMode === 'download' ? form.platforms : [],
+                      version: form.version,
+                      updatedAt: now,
+                      releasedAt: now,
+                      plays: 0,
+                      likes: 0,
+                      price: 'free',
+                      cover: form.cover?.url || '/art/covers/pixel-ronin.webp',
+                      keyart: form.shots[0]?.url,
+                      shots: form.shots.map((x) => x.url).filter(Boolean) as string[],
+                      changelog: form.changelog ? [{ version: form.version, date: now, notes: [form.changelog] }] : [],
+                      featured: false,
+                    });
+                    if (draftId) store.removeDraft(draftId);
                     setPublished(true);
                     window.scrollTo({ top: 0 });
                   }}

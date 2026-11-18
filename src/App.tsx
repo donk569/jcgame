@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { SiteHeader } from './components/SiteHeader';
 import { SiteFooter } from './components/SiteFooter';
@@ -11,6 +11,8 @@ import Upload from './pages/Upload';
 import Creator from './pages/Creator';
 import Dashboard from './pages/Dashboard';
 import NotFound from './pages/NotFound';
+import Login from './pages/Login';
+import { useAppStore } from './store/AppStore';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -18,6 +20,15 @@ function ScrollToTop() {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [pathname]);
   return null;
+}
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user } = useAppStore();
+  const location = useLocation();
+  if (!user) {
+    return <Navigate to={`/login?from=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
+  return <>{children}</>;
 }
 
 function PageFrame() {
@@ -36,9 +47,10 @@ function PageFrame() {
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/game/:slug" element={<GameDetail />} />
-        <Route path="/upload" element={<Upload />} />
+        <Route path="/upload" element={<RequireAuth><Upload /></RequireAuth>} />
         <Route path="/creator/:handle" element={<Creator />} />
-        <Route path="/me" element={<Dashboard />} />
+        <Route path="/me" element={<RequireAuth><Dashboard /></RequireAuth>} />
+        <Route path="/login" element={<Login />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </motion.main>

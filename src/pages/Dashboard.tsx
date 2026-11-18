@@ -27,12 +27,6 @@ const tabs = [
 
 type TabKey = (typeof tabs)[number]['key'];
 
-const drafts = [
-  { name: '雾中列车', updated: '11-16', progress: 72, note: '缺两张截图' },
-  { name: 'Untitled（光影原型）', updated: '11-11', progress: 34, note: '产物 1.8 GB，需拆包' },
-  { name: '竹林七秒', updated: '10-28', progress: 12, note: '只有封面' },
-];
-
 const trend = [
   { day: '一', date: '11-11', v: 1.2 },
   { day: '二', date: '11-12', v: 1.8 },
@@ -59,21 +53,7 @@ const activity: Act[] = [
   { kind: 'draft', text: '保存草稿', target: '雾中列车', time: '11-16' },
 ];
 
-const comments = [
-  {
-    name: '林深见鹿',
-    time: '2 小时前',
-    text: '灯灭之后靠记忆走的那段太狠了，走过去真的很爽。希望加个「只看影子」的辅助模式。',
-    unread: true,
-  },
-  {
-    name: 'kk_1993',
-    time: '昨天',
-    text: '26 关打完，最后一关的存档点位置有点劝退，其他都好。',
-    unread: true,
-  },
-  { name: 'NINE', time: '11-14', text: '雨声那层做得太好了，戴耳机是另一种体验。' },
-];
+
 
 /* ------------------------------------------------------------------ */
 /* 数字：衬线 + 滚动                                                    */
@@ -104,17 +84,14 @@ function AnimatedNumber({ value }: { value: number }) {
 /* ------------------------------------------------------------------ */
 
 export default function Dashboard() {
+  const store = useAppStore();
   const [tab, setTab] = useState<TabKey>('works');
   const toast = useToast();
   const reduce = useReducedMotion();
-  const [profile, setProfile] = useState({
-    name: currentUser.name,
-    bio: currentUser.bio,
-    site: 'https://example.com',
-  });
+  const [profile, setProfile] = useState(() =>
+    store.profile ?? { name: currentUser.name, bio: currentUser.bio, site: 'https://example.com' },
+  );
   const [notify, setNotify] = useState({ comment: true, update: true, weekly: false });
-
-  const store = useAppStore();
   const mine = useGamesByCreator(currentUser.handle);
   const featured = mine[0];
   const others = mine.slice(1);
@@ -198,7 +175,7 @@ export default function Dashboard() {
                 [totalPlays, '累计试玩', 'var(--color-bone)'],
                 [totalLikes, '累计收藏', 'var(--color-bone)'],
                 [mine.length, '已发布', 'var(--color-teal)'],
-                [drafts.length, '草稿', 'var(--color-amber)'],
+                [store.drafts.length, '草稿', 'var(--color-amber)'],
               ].map(([n, label, color]) => (
                 <div key={label as string} className="flex items-baseline gap-2">
                   <dd
@@ -229,7 +206,7 @@ export default function Dashboard() {
               <span className="flex items-baseline gap-1.5">
                 {t.label}
                 {t.key === 'drafts' && (
-                  <em className="mono not-italic text-muted-dim">{drafts.length}</em>
+                  <em className="mono not-italic text-muted-dim">{store.drafts.length}</em>
                 )}
               </span>
               {tab === t.key && (
@@ -274,7 +251,7 @@ export default function Dashboard() {
               )}
 
               <section className="mt-8">
-                <SectionRule title="草稿" accent="var(--color-amber)" count={drafts.length} note="只有你能看到" />
+                <SectionRule title="草稿" accent="var(--color-amber)" count={store.drafts.length} note="只有你能看到" />
                 <DraftsList />
               </section>
 
@@ -282,12 +259,12 @@ export default function Dashboard() {
                 <div className="flex items-baseline gap-3 border-b border-paper-ink/15 pb-2">
                   <span className="mb-[3px] h-3 w-[2px] shrink-0 rounded-full bg-paper-ink/60" aria-hidden="true" />
                   <h2 className="serif text-[15px]">玩家留言</h2>
-                  <span className="mono text-[10.5px] text-paper-muted">{comments.length}</span>
+                  <span className="mono text-[10.5px] text-paper-muted">{store.comments.length}</span>
                 </div>
                 <div>
-                  {comments.map((c) => (
+                  {store.comments.map((c) => (
                     <div
-                      key={c.name + c.time}
+                      key={c.id}
                       className="flex gap-3 border-b border-paper-ink/12 py-3.5 last:border-0"
                     >
                       <span
@@ -304,13 +281,25 @@ export default function Dashboard() {
                             <span className="h-[5px] w-[5px] bg-paper-ink/70" aria-label="未回复" />
                           )}
                           <button
-                            onClick={() => toast.push('演示环境：回复功能未接入')}
+                            onClick={() => {
+                              const text = window.prompt(`回复 ${c.name}：`, c.reply ?? '');
+                              if (text !== null && text.trim()) {
+                                store.replyComment(c.id, text.trim());
+                                toast.push('已回复', 'ok');
+                              }
+                            }}
                             className="ml-auto text-[11.5px] text-paper-ink/45 hover:text-paper-ink"
                           >
-                            回复
+                            {c.reply ? '编辑回复' : '回复'}
                           </button>
                         </div>
                         <p className="mt-1 text-[12.5px] leading-relaxed text-paper-muted">{c.text}</p>
+                        {c.reply && (
+                          <p className="mt-2 border-l-2 border-paper-ink/30 pl-2.5 text-[12px] leading-relaxed text-paper-ink/70">
+                            <span className="mono mr-1.5 text-[10px] text-paper-muted">你</span>
+                            {c.reply}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -329,7 +318,7 @@ export default function Dashboard() {
 
         {tab === 'drafts' && (
           <div className="max-w-[860px]">
-            <SectionRule title="草稿" accent="var(--color-amber)" count={drafts.length} note="不会出现在探索页" />
+            <SectionRule title="草稿" accent="var(--color-amber)" count={store.drafts.length} note="不会出现在探索页" />
             <DraftsList />
           </div>
         )}
@@ -443,7 +432,10 @@ export default function Dashboard() {
                 <div className="flex items-center gap-4 pt-1">
                   <button
                     className="btn btn-brand btn-sm"
-                    onClick={() => toast.push('资料已保存', 'ok')}
+                    onClick={() => {
+                      store.saveProfile(profile);
+                      toast.push('资料已保存，公开主页同步更新', 'ok');
+                    }}
                   >
                     保存
                   </button>
@@ -510,13 +502,24 @@ export default function Dashboard() {
               <div>
                 <div className="field-label">危险操作</div>
                 <p className="mt-1 text-[12px] text-muted">注销会同时下架所有作品，链接永久失效。</p>
-                <button
-                  className="btn btn-ghost btn-sm mt-3 text-danger"
-                  style={{ borderColor: 'color-mix(in srgb, var(--color-danger) 45%, transparent)' }}
-                  onClick={() => toast.push('演示环境：注销流程未接入')}
-                >
-                  注销账号
-                </button>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      store.logout();
+                      toast.push('已退出登录', 'ok');
+                    }}
+                  >
+                    退出登录
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm text-danger"
+                    style={{ borderColor: 'color-mix(in srgb, var(--color-danger) 45%, transparent)' }}
+                    onClick={() => toast.push('演示环境：注销账号需接后端后开放')}
+                  >
+                    注销账号
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -613,40 +616,55 @@ function FeaturedWork({ game }: { game: (typeof games)[number] }) {
 /* ------------------------------------------------------------------ */
 
 function DraftsList() {
-  const toast = useToast();
+  const store = useAppStore();
+  if (store.drafts.length === 0) {
+    return (
+      <div className="mt-4 border border-line-soft px-6 py-12 text-center">
+        <p className="text-[13px] text-muted">还没有草稿。</p>
+        <Link to="/upload" className="link-underline mt-2 inline-block text-[12.5px] text-bone-dim hover:text-bone">
+          去发布页新建 →
+        </Link>
+      </div>
+    );
+  }
   return (
     <div className="mt-1">
-      {drafts.map((d) => (
-        <button
-          key={d.name}
-          onClick={() => toast.push('演示环境：草稿编辑器未接入')}
-          className="group flex w-full items-center gap-3 border-b border-line-soft py-3 text-left last:border-0"
+      {store.drafts.map((d) => (
+        <div
+          key={d.id}
+          className="group flex w-full items-center gap-3 border-b border-line-soft py-3 last:border-0"
         >
           <span className="h-6 w-[2px] shrink-0 rounded-full bg-amber/60" aria-hidden="true" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12.5px] text-bone-dim transition-colors group-hover:text-bone">
-              {d.name}
+          <Link to={`/upload?draft=${encodeURIComponent(d.id)}`} className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12.5px] text-bone-dim transition-colors group-hover:text-bone">
+                {d.form.title || 'Untitled'}
+              </span>
+              <span className="mono mt-1 block text-[10.5px] text-muted-dim">
+                {d.form.savedAt} 编辑
+              </span>
             </span>
-            <span className="mono mt-1 block text-[10.5px] text-muted-dim">
-              {d.updated} 编辑
+            <span className="hidden min-w-0 flex-1 truncate text-[11.5px] text-muted sm:block">
+              {d.form.engine || '未选引擎'} · {d.form.cats.join(' / ') || '未选分类'}
             </span>
-          </span>
-          <span className="hidden min-w-0 flex-1 truncate text-[11.5px] text-muted sm:block">
-            {d.note}
-          </span>
-          <span className="hidden w-[86px] shrink-0 items-center gap-1.5 sm:flex">
-            <span className="h-[2px] flex-1 overflow-hidden rounded-full bg-line">
-              <span
-                className="block h-full rounded-full bg-amber/70"
-                style={{ width: `${d.progress}%` }}
-              />
+            <span className="hidden w-[86px] shrink-0 items-center gap-1.5 sm:flex">
+              <span className="h-[2px] flex-1 overflow-hidden rounded-full bg-line">
+                <span className="block h-full rounded-full bg-amber/70" style={{ width: `${d.progress}%` }} />
+              </span>
+              <span className="mono text-[10px] text-muted-dim">{d.progress}%</span>
             </span>
-            <span className="mono text-[10px] text-muted-dim">{d.progress}%</span>
-          </span>
-          <span className="shrink-0 text-[11.5px] text-muted opacity-0 transition-opacity group-hover:opacity-100">
-            继续 →
-          </span>
-        </button>
+            <span className="shrink-0 text-[11.5px] text-muted opacity-0 transition-opacity group-hover:opacity-100">
+              继续 →
+            </span>
+          </Link>
+          <button
+            onClick={() => store.removeDraft(d.id)}
+            aria-label={`删除草稿 ${d.form.title || 'Untitled'}`}
+            className="shrink-0 text-[11px] text-muted-dim transition-colors hover:text-warm"
+          >
+            删除
+          </button>
+        </div>
       ))}
     </div>
   );

@@ -7,15 +7,21 @@
  */
 import { useMemo } from 'react';
 import * as api from '@/api';
+import { useAppStore } from '@/store/AppStore';
 
 export function useGames() {
-  return api.getGames();
+  const { published } = useAppStore();
+  return useMemo(
+    () => [...published, ...api.getGames()],
+    [published],
+  );
 }
 
 export function useGame(slug: string | undefined) {
+  const games = useGames();
   return useMemo(
-    () => (slug ? api.getGame(slug) : undefined),
-    [slug],
+    () => (slug ? games.find((g) => g.slug === slug) : undefined),
+    [slug, games],
   );
 }
 
@@ -31,9 +37,10 @@ export function useCreators() {
 }
 
 export function useGamesByCreator(handle: string | undefined) {
+  const games = useGames();
   return useMemo(
-    () => (handle ? api.gamesByCreator(handle) : []),
-    [handle],
+    () => (handle ? games.filter((g) => g.studio.handle === handle) : []),
+    [handle, games],
   );
 }
 
@@ -63,10 +70,11 @@ export function useCurrentUser() {
 
 /** 探索页相关：派生数据都在 hook 里算，页面只拿结果 */
 export function useRelatedGames(slug: string | undefined, count = 4) {
+  const games = useGames();
   return useMemo(() => {
-    const game = slug ? api.getGame(slug) : undefined;
+    const game = slug ? games.find((g) => g.slug === slug) : undefined;
     if (!game) return [];
-    return api.getGames()
+    return games
       .filter(
         (g) =>
           g.slug !== slug &&
@@ -74,5 +82,5 @@ export function useRelatedGames(slug: string | undefined, count = 4) {
             g.categories.some((c) => game.categories.includes(c))),
       )
       .slice(0, count);
-  }, [slug, count]);
+  }, [slug, count, games]);
 }

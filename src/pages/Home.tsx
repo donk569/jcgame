@@ -20,19 +20,19 @@ import {
 import { GamePost, GameRow } from '@/components/GameCard';
 import { Reveal } from '@/components/Reveal';
 import { SectionHead, TextLink } from '@/components/SectionHead';
-import { getCategories, getCreators, getEngines, getGames } from '@/api';
+import { getCategories, getCreators, getEngines } from '@/api';
+import { useGames } from '@/hooks/useData';
 import { formatCount } from '@/lib/format';
 
-const games = getGames();
 const categories = getCategories();
 const creators = getCreators();
 const engines = getEngines();
 
-const byNew = [...games].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-const featured = games[0];
-const hot = [games[8], games[3], games[6], games[7], games[10], games[1]];
-
 export default function Home() {
+  const games = useGames();
+  const byNew = [...games].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const featured = games[0];
+  const hot = [games[8], games[3], games[6], games[7], games[10], games[1]];
   const reduce = useReducedMotion();
   const heroRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);

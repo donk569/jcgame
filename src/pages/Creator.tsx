@@ -6,6 +6,7 @@ import { GamePost } from '@/components/GameCard';
 import { useToast } from '@/components/Toast';
 import { useAppStore } from '@/store/AppStore';
 import { formatCount } from '@/lib/format';
+import { getCurrentUser } from '@/api';
 import { useCreator, useGamesByCreator } from '@/hooks/useData';
 import NotFound from './NotFound';
 
@@ -19,6 +20,11 @@ export default function Creator() {
 
   if (!creator) return <NotFound />;
 
+  // 当前用户在资料页改过的内容，公开主页跟着变
+  const isSelf = creator.handle === getCurrentUser().handle;
+  const shown = isSelf && store.profile
+    ? { ...creator, name: store.profile.name, bio: store.profile.bio }
+    : creator;
   const works = useGamesByCreator(creator.handle);
   const totalPlays = works.reduce((s, g) => s + g.plays, 0);
 
@@ -54,11 +60,11 @@ export default function Creator() {
               }}
               aria-hidden="true"
             >
-              {creator.name.slice(0, 1).toUpperCase()}
+              {shown.name.slice(0, 1).toUpperCase()}
             </span>
             <div className="min-w-0 flex-1">
               <h1 className="text-[clamp(1.8rem,3vw,2.5rem)] font-extrabold tracking-[-0.035em]">
-                {creator.name}
+                {shown.name}
               </h1>
               <div className="mono mt-1.5 text-muted">
                 @{creator.handle} · {creator.location} · 加入于 {creator.since}
@@ -70,7 +76,7 @@ export default function Creator() {
                 className={`btn btn-sm ${following ? 'btn-ghost' : 'btn-primary'}`}
                 onClick={() => {
                   const on = handle ? store.toggleFollowing(handle) : false;
-                  toast.push(on ? `已关注 ${creator.name}` : '已取消关注', 'ok');
+                  toast.push(on ? `已关注 ${shown.name}` : '已取消关注', 'ok');
                 }}
                 aria-pressed={following}
               >
@@ -95,7 +101,7 @@ export default function Creator() {
             </div>
           </div>
 
-          <p className="mt-5 max-w-[54ch] text-[14px] leading-relaxed text-bone-dim">{creator.bio}</p>
+          <p className="mt-5 max-w-[54ch] text-[14px] leading-relaxed text-bone-dim">{shown.bio}</p>
 
           <dl className="mt-6 flex flex-wrap gap-x-12 gap-y-4">
             {[
@@ -159,9 +165,9 @@ export default function Creator() {
           )
         ) : (
           <div className="max-w-[62ch] space-y-4 rounded-none border border-line-soft bg-ink-800 p-6 text-[14px] leading-[1.75] text-bone-dim">
-            <p>{creator.bio}</p>
+            <p>{shown.bio}</p>
             <p className="text-muted">
-              {creator.name} 在 {creator.since} 加入 JCGame，目前发布 {works.length} 款作品。
+              {shown.name} 在 {creator.since} 加入 JCGame，目前发布 {works.length} 款作品。
               所有作品都可以在浏览器直接试玩或下载客户端。
             </p>
             <div className="flex flex-wrap gap-1.5 pt-1">
