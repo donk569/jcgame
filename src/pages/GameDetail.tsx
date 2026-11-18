@@ -260,7 +260,7 @@ export default function GameDetail() {
                   key={shots[shot]}
                   src={shots[shot]}
                   alt={`${game.titleCn} 画面 ${shot + 1}`}
-                  className="aspect-[16/9] w-full object-cover"
+                  className="mx-auto block max-h-[620px] w-auto max-w-full"
                   initial={{ opacity: 0, scale: 1.01 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
