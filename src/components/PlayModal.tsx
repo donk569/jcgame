@@ -112,69 +112,36 @@ export function PlayModal({ game, open, onClose }: { game: Game; open: boolean; 
             aria-label={`${game.titleCn} 网页试玩`}
             ref={panelRef}
             tabIndex={-1}
-            className="relative flex h-full w-full max-w-[1180px] flex-col overflow-hidden border border-line bg-ink-850 outline-none sm:h-auto sm:rounded-none"
+            className="relative flex h-full w-full max-w-[1180px] flex-col overflow-hidden bg-ink-950 outline-none sm:h-auto"
             initial={{ opacity: 0, scale: 0.985, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.99 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-line-soft px-3 py-2.5 sm:px-4">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
-                    phase === 'running' ? 'bg-teal' : phase === 'error' ? 'bg-danger' : 'bg-brand'
-                  } ${phase === 'loading' ? 'animate-pulse' : ''}`}
-                />
-                <span className="truncate text-[13.5px] font-medium">{game.titleCn}</span>
-                <span className="mono hidden truncate text-muted-dim sm:block">
-                  {game.webBuild?.host}
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  onClick={toggleFullscreen}
-                  className="grid h-8 w-8 place-items-center rounded-[2px] text-muted transition-colors hover:bg-ink-700 hover:text-bone"
-                  aria-label={fullscreen ? '退出全屏' : '全屏'}
-                >
-                  {fullscreen ? <ArrowsIn size={15} /> : <ArrowsOut size={15} />}
-                </button>
-                <button
-                  onClick={onClose}
-                  className="grid h-8 w-8 place-items-center rounded-[2px] text-muted transition-colors hover:bg-ink-700 hover:text-bone"
-                  aria-label="退出试玩"
-                >
-                  <X size={16} weight="bold" />
-                </button>
-              </div>
-            </div>
-
-            <div ref={frameRef} className="relative w-full flex-1 overflow-hidden bg-black sm:aspect-[16/9] sm:flex-none">
+            {/* 画面占满整个面板，控件悬浮在画面上，不做上中下三层套壳 */}
+            <div
+              ref={frameRef}
+              className="relative w-full flex-1 overflow-hidden bg-black sm:aspect-[16/9] sm:flex-none"
+            >
               <AnimatePresence mode="wait">
                 {phase === 'loading' && (
                   <motion.div
                     key="loading"
                     exit={{ opacity: 0 }}
-                    className="relative flex h-full min-h-[300px] flex-col items-center justify-center gap-6 px-6"
+                    className="relative flex h-full min-h-[300px] flex-col items-center justify-center gap-5 px-6"
                   >
                     <img
                       src={game.keyart ?? game.cover}
                       alt=""
-                      className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 blur-md"
+                      className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20 blur-lg"
                     />
-                    <div className="pointer-events-none absolute inset-0 bg-ink-950/55" />
-                    <div className="flex items-center gap-2.5">
-                      <span className="grid h-8 w-8 place-items-center rounded-[2px] bg-brand/15 text-brand">
-                        <motion.span
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
-                          className="block h-4 w-4 rounded-full border-2 border-brand border-t-transparent"
-                        />
-                      </span>
-                      <span className="text-[13.5px] text-bone-dim">正在启动 {game.titleCn}</span>
+                    <div className="pointer-events-none absolute inset-0 bg-ink-950/60" />
+                    <div className="relative text-[13.5px] text-bone-dim">
+                      正在启动 {game.titleCn}
                     </div>
-                    <div className="w-full max-w-[380px]">
+                    <div className="relative w-full max-w-[320px]">
                       <div
-                        className="h-[3px] w-full overflow-hidden rounded-full bg-white/10"
+                        className="h-px w-full overflow-hidden bg-white/15"
                         role="progressbar"
                         aria-valuenow={Math.round(progress)}
                         aria-valuemin={0}
@@ -182,13 +149,15 @@ export function PlayModal({ game, open, onClose }: { game: Game; open: boolean; 
                         aria-label="加载进度"
                       >
                         <div
-                          className="h-full rounded-full bg-brand transition-[width] duration-150 ease-linear"
+                          className="h-full bg-brand transition-[width] duration-150 ease-linear"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
                       <div className="mt-2.5 flex items-center justify-between">
-                        <span className="text-[12px] text-muted">{step}</span>
-                        <span className="mono text-muted-dim">{Math.round(progress)}%</span>
+                        <span className="text-[11.5px] text-muted">{step}</span>
+                        <span className="mono text-[11px] text-muted-dim">
+                          {Math.round(progress)}%
+                        </span>
                       </div>
                     </div>
                   </motion.div>
@@ -206,7 +175,7 @@ export function PlayModal({ game, open, onClose }: { game: Game; open: boolean; 
                       alt={`${game.titleCn} 运行画面（演示占位）`}
                       className="h-full w-full object-cover"
                     />
-                    <span className="absolute bottom-2 left-2 rounded-full bg-ink-950/72 px-2 py-0.5 text-[10.5px] text-bone-dim backdrop-blur">
+                    <span className="absolute bottom-14 left-3 text-[10.5px] text-bone/40">
                       演示占位：正式环境为沙箱 iframe
                     </span>
                   </motion.div>
@@ -222,7 +191,9 @@ export function PlayModal({ game, open, onClose }: { game: Game; open: boolean; 
                     <p className="text-[15px] font-medium">游戏没能启动</p>
                     <p className="max-w-[42ch] text-[13px] leading-relaxed text-muted">
                       构建产物加载失败，可能是网络中断或开发者刚更新了版本。重新加载通常能解决；连续失败请
-                      <button className="mx-1 text-brand underline-offset-4 hover:underline">报告问题</button>
+                      <button className="mx-1 text-brand underline-offset-4 hover:underline">
+                        报告问题
+                      </button>
                       。
                     </p>
                     <span className="mono text-muted-dim">JC-RUN-0x02E4</span>
@@ -232,22 +203,58 @@ export function PlayModal({ game, open, onClose }: { game: Game; open: boolean; 
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
 
-            <div className="flex flex-col gap-2 border-t border-line-soft px-3 py-2.5 text-[11.5px] text-muted-dim sm:flex-row sm:items-center sm:justify-between sm:px-4">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck size={13} />
-                游戏在独立域名与沙箱 iframe 中运行，不共享主站登录态与存储
-              </span>
-              <button
-                onClick={() => {
-                  setFailNext((v) => !v);
-                  start();
-                }}
-                className="self-start text-muted transition-colors hover:text-bone sm:self-auto"
-              >
-                {failNext ? '恢复默认加载' : '演示：模拟加载失败'}
-              </button>
+              {/* 悬浮顶栏：只在需要时可见，不占画面 */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-ink-950/80 to-transparent px-3 pb-8 pt-3">
+                <div className="pointer-events-auto flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+                      phase === 'running'
+                        ? 'bg-teal'
+                        : phase === 'error'
+                          ? 'bg-danger'
+                          : 'bg-brand animate-pulse'
+                    }`}
+                  />
+                  <span className="truncate text-[13px] font-medium">{game.titleCn}</span>
+                  <span className="mono hidden truncate text-[10.5px] text-bone/35 sm:block">
+                    {game.webBuild?.host}
+                  </span>
+                </div>
+                <div className="pointer-events-auto flex shrink-0 items-center gap-0.5">
+                  <button
+                    onClick={toggleFullscreen}
+                    className="grid h-8 w-8 place-items-center text-bone/60 transition-colors hover:text-bone"
+                    aria-label={fullscreen ? '退出全屏' : '全屏'}
+                  >
+                    {fullscreen ? <ArrowsIn size={15} /> : <ArrowsOut size={15} />}
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="grid h-8 w-8 place-items-center text-bone/60 transition-colors hover:text-bone"
+                    aria-label="退出试玩"
+                  >
+                    <X size={16} weight="bold" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 悬浮底栏：沙箱说明与演示开关，轻到几乎看不见 */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-ink-950/80 to-transparent px-3 pb-2.5 pt-6 text-[10.5px] text-bone/35">
+                <span className="pointer-events-auto flex items-center gap-1.5">
+                  <ShieldCheck size={12} />
+                  独立域名沙箱运行，不共享主站登录态
+                </span>
+                <button
+                  onClick={() => {
+                    setFailNext((v) => !v);
+                    start();
+                  }}
+                  className="pointer-events-auto transition-colors hover:text-bone/70"
+                >
+                  {failNext ? '恢复默认加载' : '演示：模拟失败'}
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>

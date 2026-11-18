@@ -168,30 +168,45 @@ export default function Explore() {
         </div>
       </div>
 
-      {/* 分类：横向 chips */}
-      <div className="mb-4 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        <button className="chip shrink-0" data-active={!category} onClick={() => setParam('category', '')}>
+      {/* 分类：纯文字 + 下划线选中，不套框 */}
+      <div className="mb-5 flex items-center gap-5 overflow-x-auto border-b border-line-soft pb-0 no-scrollbar">
+        <button
+          onClick={() => setParam('category', '')}
+          className={`relative shrink-0 pb-2.5 text-[13.5px] transition-colors ${
+            !category ? 'text-bone' : 'text-muted hover:text-bone-dim'
+          }`}
+        >
           全部
+          {!category && <span className="tabline-ink" />}
         </button>
-        {categories.map((c) => (
-          <button
-            key={c.slug}
-            className="chip shrink-0"
-            data-active={category === c.name}
-            onClick={() => setParam('category', category === c.name ? '' : c.name)}
-          >
-            {c.name}
-            <span className="mono text-muted-dim">{c.count}</span>
-          </button>
-        ))}
+        {categories.map((c) => {
+          const on = category === c.name;
+          return (
+            <button
+              key={c.slug}
+              onClick={() => setParam('category', on ? '' : c.name)}
+              className={`relative shrink-0 pb-2.5 text-[13.5px] transition-colors ${
+                on ? 'text-bone' : 'text-muted hover:text-bone-dim'
+              }`}
+            >
+              {c.name}
+              <span className="mono ml-1.5 text-[10.5px] text-muted-dim">{c.count}</span>
+              {on && <span className="tabline-ink" />}
+            </button>
+          );
+        })}
       </div>
 
       {activeFilters.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {activeFilters.map(([key, value]) => (
-            <button key={key} className="chip chip-brand" onClick={() => setParam(key, '')}>
+            <button
+              key={key}
+              onClick={() => setParam(key, '')}
+              className="group inline-flex items-center gap-1.5 border-b border-brand/50 pb-0.5 text-[12.5px] text-brand"
+            >
               {value}
-              <X size={10} weight="bold" />
+              <X size={10} weight="bold" className="opacity-60 group-hover:opacity-100" />
             </button>
           ))}
           <button onClick={clearAll} className="text-[12.5px] text-muted underline-offset-4 hover:text-bone hover:underline">

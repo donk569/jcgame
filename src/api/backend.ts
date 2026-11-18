@@ -99,7 +99,7 @@ export function rowToCreator(r: DbCreator): Creator {
     since: r.since ?? '',
     location: r.location ?? '',
     links: arr<{ label: string; url: string }>(r.links),
-    accent: r.accent ?? '#8e6bff',
+    accent: r.accent ?? '#f0603c',
   };
 }
 

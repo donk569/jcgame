@@ -6,50 +6,50 @@
    表层靠"色温 + 明度"两级区分，不只靠黑白灰。
    ============================================================ */
 @theme {
-  --color-ink-950: #0a0810;
-  --color-ink-900: #0e0b16; /* 页面底 */
-  --color-ink-850: #141020;
-  --color-ink-800: #191426; /* 一级容器 */
-  --color-ink-700: #211a31; /* 卡片 */
-  --color-ink-600: #2a2140; /* 悬停 / 抬起 */
-  --color-ink-500: #362a52;
+  /* ---- 表层：中性偏暖的深灰，不掺紫调，让游戏封面成为唯一的高饱和内容 ---- */
+  --color-ink-950: #0B0A09;
+  --color-ink-900: #0F0E0C; /* 页面底 */
+  --color-ink-850: #131110;
+  --color-ink-800: #171513; /* 一级容器 */
+  --color-ink-700: #1E1B18; /* 卡片 */
+  --color-ink-600: #262220; /* 悬停 / 抬起 */
+  --color-ink-500: #322D29;
 
-  --color-line: #2b2340;
-  --color-line-soft: #1e1830;
-  --color-line-bright: #4a3d6b;
+  /* ---- 线：只用来分隔，不用来描边装饰 ---- */
+  --color-line: #2A2622;
+  --color-line-soft: #1D1A17;
+  --color-line-bright: #443D36;
 
-  --color-bone: #f4f1ea;
-  --color-bone-dim: #c9c2d6;
-  --color-muted: #948da8;
-  --color-muted-dim: #665d7c;
+  /* ---- 文字 ---- */
+  --color-bone: #F5F2ED;
+  --color-bone-dim: #C6C0B6;
+  --color-muted: #8F8880;
+  --color-muted-dim: #5F5952;
 
-  /* 品牌主色：暮光紫。刻意不用 #6366F1/#8B5CF6 那套"AI 紫"，
-     而是偏红一点的紫，配奶油白与暖珊瑚做互补 */
-  --color-brand: #8e6bff;
-  --color-brand-hi: #a98bff;
-  --color-brand-soft: #8e6bff1f;
-  --color-brand-ink: #140b28;
+  /* ---- 品牌主色：赤陶橙。比"珊瑚橙"沉一档，避免廉价的 AI 亮橙感 ---- */
+  --color-brand: #F0603C;
+  --color-brand-hi: #FF7F5E;
+  --color-brand-soft: #F0603C1F;
+  --color-brand-ink: #1A0A05;
 
-  /* 辅助色：暖珊瑚，只用于"下载/喜欢/提醒"这类与品牌主色区分的语义 */
-  --color-warm: #ff7a5c;
-  --color-warm-soft: #ff7a5c1f;
+  /* ---- 辅助色只保留三个，各有明确用途 ---- */
+  --color-warm: #E0A73E; /* 琥珀：点赞、收藏、草稿这类"个人侧"语义 */
+  --color-warm-soft: #E0A73E1F;
+  --color-teal: #2FBFA5; /* 青：网页可直接玩、成功状态 */
+  --color-teal-soft: #2FBFA51F;
+  --color-amber: #E0A73E;
 
-  --color-teal: #35d6c0;
-  --color-teal-soft: #35d6c01f;
-
-  --color-amber: #e8b04b;
-
-  --color-paper: #f4ede1;
-  /* 便签：比纸色更灰、更冷，用来和纸色块拉开层次 */
-  --color-note: #d7d3ca;
-  --color-note-hi: #e2ded5;
-  --color-note-ink: #171a1c;
-  --color-paper-2: #e6dcc9;
+  /* ---- 浅色面：只放"人"的内容（动态、留言、开发者） ---- */
+  --color-paper: #F4EDE1;
+  --color-note: #D7D3CA;
+  --color-note-hi: #E2DED5;
+  --color-note-ink: #171A1C;
+  --color-paper-2: #E6DCC9;
   --color-paper-ink: #101820;
-  --color-paper-muted: #5a5f55;
+  --color-paper-muted: #5A5F55;
 
-  --color-danger: #e5533d;
-  --color-ok: #46c08a;
+  --color-danger: #E5533D;
+  --color-ok: #2FBFA5;
 
   --font-display: 'Archivo', 'Noto Sans SC', system-ui, sans-serif;
   --font-sans: 'Archivo', 'Noto Sans SC', system-ui, sans-serif;
@@ -182,7 +182,7 @@
   }
   .shell-tint-brand {
     background:
-      radial-gradient(120% 90% at 12% 0%, #8e6bff1a, transparent 60%),
+      radial-gradient(120% 90% at 12% 0%, #f0603c14, transparent 60%),
       var(--color-ink-800);
   }
   .shell-tint-teal {
@@ -279,11 +279,11 @@
   .btn-primary {
     background: var(--color-brand);
     color: var(--color-brand-ink);
-    box-shadow: 0 6px 20px -8px #8e6bff80;
+    box-shadow: 0 6px 20px -8px #f0603c66;
   }
   .btn-primary:hover {
     background: var(--color-brand-hi);
-    box-shadow: 0 10px 26px -8px #8e6bffa8;
+    box-shadow: 0 10px 26px -8px #f0603c8c;
   }
   .btn-ghost {
     border-color: #ffffff24;
@@ -502,7 +502,7 @@
     outline: none;
     border-color: var(--color-brand);
     background: #0a1017;
-    box-shadow: 0 0 0 3px #8e6bff26;
+    box-shadow: 0 0 0 3px #f0603c2e;
   }
   .input[aria-invalid='true'],
   .textarea[aria-invalid='true'] {

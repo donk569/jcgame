@@ -84,7 +84,7 @@ export default function Home() {
             className="h-full w-full scale-105 object-cover object-center blur-[2px] brightness-[0.95]"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/55 to-ink-950/75" />
-          <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_78%_18%,#8e6bff24,transparent_65%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_78%_18%,#f0603c1c,transparent_65%)]" />
           <div className="noise absolute inset-0" />
         </motion.div>
 
@@ -94,7 +94,7 @@ export default function Home() {
         >
           <div className="grid-12 items-end gap-y-12">
             <div className="col-span-12 lg:col-span-7">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-1.5 backdrop-blur-md">
+              <div className="inline-flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-teal" />
                 <span className="text-[12px] text-bone-dim">
                   本周新增 34 款游戏，12 种引擎
@@ -157,32 +157,31 @@ export default function Home() {
                     </span>
                   </Link>
                 </motion.div>
-                <div className="relative rounded-none border border-white/12 bg-ink-950/72 p-2.5 shadow-[0_30px_70px_-30px_#000] backdrop-blur-xl">
-                  <div className="relative overflow-hidden rounded-none">
-                    <img
-                      src={featured.shots?.[0] ?? featured.keyart ?? featured.cover}
-                      alt={featured.titleCn}
-                      className="aspect-[16/10] w-full object-cover"
-                    />
-                    <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full bg-ink-950/70 px-2 py-1 text-[11px] text-bone backdrop-blur">
-                      <Sparkle size={11} weight="fill" className="text-brand" /> 本周精选
-                    </span>
-                  </div>
-                  <div className="flex items-end justify-between gap-3 px-2 pb-1 pt-3">
+                <Link
+                  to={`/game/${featured.slug}`}
+                  className="group relative block overflow-hidden"
+                >
+                  <img
+                    src={featured.shots?.[0] ?? featured.keyart ?? featured.cover}
+                    alt={featured.titleCn}
+                    className="aspect-[16/10] w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,0.68,0,1)] group-hover:scale-[1.03]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/35 to-transparent" />
+                  <span className="absolute left-3.5 top-3.5 inline-flex items-center gap-1.5 text-[11px] text-bone/80">
+                    <Sparkle size={11} weight="fill" className="text-brand" /> 本周精选
+                  </span>
+                  <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-4">
                     <div className="min-w-0">
-                      <div className="truncate text-[16px] font-semibold">{featured.titleCn}</div>
-                      <div className="mono mt-1 truncate text-muted-dim">
+                      <div className="truncate text-[17px] font-semibold">{featured.titleCn}</div>
+                      <div className="mono mt-1 truncate text-[11px] text-bone-dim">
                         Unity / WebGL / 62 MB
                       </div>
                     </div>
-                    <Link
-                      to={`/game/${featured.slug}`}
-                      className="btn btn-primary btn-sm shrink-0"
-                    >
-                      <Play size={12} weight="fill" /> 立刻试玩
-                    </Link>
+                    <span className="btn btn-primary btn-sm shrink-0">
+                      <Play size={12} weight="fill" /> 试玩
+                    </span>
                   </div>
-                </div>
+                </Link>
               </div>
             </div>
           </div>
@@ -191,7 +190,7 @@ export default function Home() {
 
       {/* ================= 引擎条 ================= */}
       <div className="wrap">
-        <div className="flex items-center gap-4 overflow-x-auto rounded-none border border-line-soft bg-ink-800/60 px-4 py-3 no-scrollbar">
+        <div className="flex items-center gap-4 overflow-x-auto border-y border-line-soft py-3.5 no-scrollbar">
           <span className="mono shrink-0 text-muted-dim">支持的引擎</span>
           <div className="flex shrink-0 items-center gap-1.5">
             {engines.map((e) => (

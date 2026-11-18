@@ -327,7 +327,7 @@ export default function Dashboard() {
           <section>
             <SectionRule title="收藏" accent="var(--color-brand)" count={saved.length} />
             {saved.length === 0 ? (
-              <div className="mt-4 border border-line-soft px-6 py-12 text-center">
+              <div className="mt-6 py-12 text-center">
                 <p className="text-[13px] text-muted">还没有收藏任何游戏。</p>
                 <Link to="/explore" className="link-underline mt-2 inline-block text-[12.5px] text-bone-dim hover:text-bone">
                   去探索页看看 →
@@ -347,7 +347,7 @@ export default function Dashboard() {
           <section className="max-w-[860px]">
             <SectionRule title="点赞" accent="var(--color-warm)" count={liked.length} />
             {liked.length === 0 && (
-              <p className="mt-4 border border-line-soft px-6 py-10 text-center text-[13px] text-muted">
+              <p className="mt-6 py-10 text-center text-[13px] text-muted">
                 还没有点赞。喜欢的游戏点一下爱心就会出现在这里。
               </p>
             )}
@@ -540,13 +540,8 @@ function FeaturedWork({ game }: { game: (typeof games)[number] }) {
   const [hover, setHover] = useState(false);
 
   return (
-    <div className="hairbox overflow-hidden">
-      <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-        <span className="mono text-muted-dim">当前主推</span>
-        <span className="chip chip-teal h-[22px] text-[11px]">已上架</span>
-      </div>
-
-      <div className="flex flex-col gap-6 p-4 sm:flex-row sm:gap-7 sm:p-6">
+    <div>
+      <div className="flex flex-col gap-6 sm:flex-row sm:gap-8">
         <Link
           to={`/game/${game.slug}`}
           className="block w-[132px] shrink-0 self-start sm:w-[158px]"
@@ -556,7 +551,7 @@ function FeaturedWork({ game }: { game: (typeof games)[number] }) {
           <motion.img
             src={game.cover}
             alt={`${game.titleCn} 封面`}
-            className="aspect-[3/4] w-full rounded-[4px] border border-line object-cover"
+            className="aspect-[3/4] w-full object-cover"
             animate={reduce ? undefined : { scale: hover ? 1.03 : 1 }}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           />
@@ -620,7 +615,7 @@ function DraftsList() {
   const store = useAppStore();
   if (store.drafts.length === 0) {
     return (
-      <div className="mt-4 border border-line-soft px-6 py-12 text-center">
+      <div className="mt-6 py-12 text-center">
         <p className="text-[13px] text-muted">还没有草稿。</p>
         <Link to="/upload" className="link-underline mt-2 inline-block text-[12.5px] text-bone-dim hover:text-bone">
           去发布页新建 →

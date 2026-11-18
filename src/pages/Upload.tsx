@@ -183,7 +183,7 @@ export default function Upload() {
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_300px]">
         <div>
           {/* 步骤 */}
-          <div className="relative mb-4 inline-flex flex-wrap gap-1 rounded-none border border-line-soft bg-ink-800 p-1">
+          <div className="relative mb-6 flex flex-wrap items-center gap-6 border-b border-line-soft pb-0">
             {steps.map((s, i) => {
               const active = i === step;
               const done = i < step;
@@ -191,15 +191,15 @@ export default function Upload() {
                 <button
                   key={s}
                   onClick={() => go(i)}
-                  className={`relative flex items-center gap-2 rounded-[2px] px-3 py-2 text-[12.5px] transition-colors ${
+                  className={`relative flex items-center gap-2 pb-2.5 text-[12.5px] transition-colors ${
                     active ? 'text-bone' : done ? 'text-bone-dim' : 'text-muted-dim'
                   }`}
                   aria-current={active ? 'step' : undefined}
                 >
                   {active && (
                     <motion.span
-                      layoutId="step-pill"
-                      className="absolute inset-0 rounded-[2px] bg-ink-600"
+                      layoutId="step-ink"
+                      className="tabline-ink"
                       transition={{ type: 'spring', stiffness: 340, damping: 30 }}
                     />
                   )}
@@ -215,7 +215,7 @@ export default function Upload() {
           </div>
 
           {/* 表单容器 */}
-          <div className="relative overflow-hidden rounded-none border border-line-soft bg-ink-800 p-5 md:p-7">
+          <div className="relative">
             <AnimatePresence mode="wait" custom={dir}>
               <motion.div
                 key={step}
@@ -272,8 +272,11 @@ export default function Upload() {
                         {categories.map((c) => (
                           <button
                             key={c.slug}
-                            className="chip"
-                            data-active={form.cats.includes(c.name)}
+                            className={`border-b pb-0.5 text-[12.5px] transition-colors ${
+                              form.cats.includes(c.name)
+                                ? 'border-brand text-brand'
+                                : 'border-transparent text-muted hover:text-bone-dim'
+                            }`}
                             onClick={() => {
                               if (form.cats.includes(c.name))
                                 set('cats', form.cats.filter((x) => x !== c.name));
@@ -489,7 +492,7 @@ export default function Upload() {
                     )}
 
                     {guide && (
-                      <div className="flex gap-2.5 rounded-none border border-line-soft bg-ink-900/60 px-3.5 py-3 text-[12.5px] leading-relaxed text-muted">
+                      <div className="flex gap-2.5 border-l-2 border-brand/40 pl-3.5 py-1 text-[12.5px] leading-relaxed text-muted">
                         <Info size={14} className="mt-0.5 shrink-0 text-brand" />
                         <span>
                           按你选的引擎，{form.runMode === 'web' ? '网页版' : '桌面版'}需要上传：
@@ -543,7 +546,7 @@ export default function Upload() {
                             {['Windows', 'macOS', 'Linux'].map((p) => (
                               <button
                                 key={p}
-                                className="chip"
+                                className="text-[12.5px]"
                                 data-active={form.platforms.includes(p)}
                                 onClick={() =>
                                   set(
@@ -590,8 +593,8 @@ export default function Upload() {
 
                 {step === 3 && (
                   <div className="space-y-4">
-                    <div className="flex items-start gap-4 rounded-none border border-line-soft bg-ink-900/50 p-4">
-                      <div className="w-[92px] shrink-0 overflow-hidden rounded-none border border-line">
+                    <div className="flex items-start gap-4 border-t border-line-soft pt-4">
+                      <div className="w-[92px] shrink-0 overflow-hidden">
                         {form.cover ? (
                           <img src={form.cover.url} alt="封面预览" className="aspect-[3/4] w-full object-cover" />
                         ) : (
@@ -621,7 +624,7 @@ export default function Upload() {
                       </div>
                     </div>
 
-                    <dl className="grid gap-x-8 gap-y-3 rounded-none border border-line-soft p-4 sm:grid-cols-2">
+                    <dl className="grid gap-x-8 gap-y-3 border-t border-line-soft pt-4 sm:grid-cols-2">
                       {[
                         ['开发者', form.developer || '—'],
                         ['版本', form.version || '—'],
@@ -637,7 +640,7 @@ export default function Upload() {
                       ))}
                     </dl>
 
-                    <div className="rounded-none border border-line-soft p-4">
+                    <div className="border-t border-line-soft pt-4">
                       <div className="text-[13px] font-semibold">发布前检查</div>
                       <ul className="mt-3 space-y-2">
                         {checklist.map((c) => (
@@ -748,10 +751,10 @@ export default function Upload() {
         {/* 右栏 */}
         <aside>
           <div className="sticky top-[92px] space-y-3">
-            <div className="rounded-none border border-line-soft bg-ink-800 p-4">
+            <div className="border-t border-line-soft pt-4">
               <div className="mono mb-3 text-muted-dim">发布后长这样</div>
               <div className="flex items-center gap-3">
-                <div className="w-[64px] shrink-0 overflow-hidden rounded-[2px] border border-line">
+                <div className="w-[64px] shrink-0 overflow-hidden rounded-[2px]">
                   {form.cover ? (
                     <img src={form.cover.url} alt="" className="aspect-[3/4] w-full object-cover" />
                   ) : (
@@ -775,7 +778,7 @@ export default function Upload() {
               </div>
             </div>
 
-            <div className="rounded-none border border-line-soft bg-ink-800 p-4">
+            <div className="border-t border-line-soft pt-4">
               <div className="flex items-baseline justify-between">
                 <span className="text-[13px] font-semibold">完成度</span>
                 <span className="mono text-brand">
@@ -811,7 +814,7 @@ export default function Upload() {
               </ul>
             </div>
 
-            <div className="rounded-none border border-line-soft p-4">
+            <div className="border-t border-line-soft pt-4">
               <div className="text-[12.5px] font-semibold">不限制构建格式</div>
               <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
                 Unity 传 WebGL 或 exe，Godot 传 .pck，H5 传静态站点 —— 平台统一的是发布信息，不是产物格式。

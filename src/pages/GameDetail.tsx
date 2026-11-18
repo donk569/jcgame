@@ -81,8 +81,8 @@ export default function GameDetail() {
             alt=""
             className="h-[340px] w-full object-cover md:h-[440px] lg:h-[500px]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-ink-950/95 via-ink-950/45 to-ink-950/25" />
-          <div className="noise absolute inset-0" />
+          {/* 单层渐变就够：下方压字区深，上方留给画面 */}
+          <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/55 to-transparent" />
 
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-5 p-5 md:p-8">
             <div className="min-w-0">
@@ -164,54 +164,56 @@ export default function GameDetail() {
       <div className="wrap mt-5 grid-12">
         {/* ---------- 主列 ---------- */}
         <div className="col-span-12 lg:col-span-8">
-          {/* 运行入口 */}
-          <div
-            className="relative overflow-hidden rounded-none border p-5 md:p-6"
-            style={{
-              borderColor: isWeb ? '#35d6c040' : '#8e6bff40',
-              background: isWeb
-                ? 'linear-gradient(120deg, #35d6c014, transparent 60%), var(--color-ink-800)'
-                : 'linear-gradient(120deg, #8e6bff14, transparent 60%), var(--color-ink-800)',
-            }}
-          >
+          {/* 试玩 / 下载：画面本身就是容器，不套彩色框 */}
+          <section>
             {isWeb ? (
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Play size={16} weight="fill" className="text-teal" />
-                    <span className="text-[15px] font-semibold">在浏览器里直接玩</span>
-                  </div>
-                  <p className="mono mt-2 text-muted">
-                    首包 {formatBytes(game.webBuild?.bytes ?? 0)} · {game.webBuild?.host}
-                  </p>
+              <button
+                onClick={() => setPlayOpen(true)}
+                className="group relative block w-full overflow-hidden text-left"
+                aria-label={`试玩 ${game.titleCn}`}
+              >
+                <img
+                  src={shots[0] ?? game.cover}
+                  alt=""
+                  className="aspect-[16/9] w-full object-cover transition-transform duration-[700ms] ease-[cubic-bezier(0.22,0.68,0,1)] group-hover:scale-[1.02]"
+                />
+                {/* 只在中心压一层轻暗，保证按钮可读，不遮画面 */}
+                <div className="absolute inset-0 bg-ink-950/25 transition-colors group-hover:bg-ink-950/15" />
+                <div className="absolute inset-0 grid place-items-center">
+                  <span className="grid h-16 w-16 place-items-center rounded-full border border-bone/40 bg-ink-950/50 backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-bone group-hover:bg-ink-950/70">
+                    <Play size={22} weight="fill" className="ml-[2px] text-bone" />
+                  </span>
                 </div>
-                <button className="btn btn-primary" onClick={() => setPlayOpen(true)}>
-                  <Play size={15} weight="fill" /> 开始试玩
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <DownloadSimple size={16} weight="bold" className="text-warm" />
-                    <span className="text-[15px] font-semibold">
-                      下载 {game.download?.platform} 版本
-                    </span>
+                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-4">
+                  <div className="flex items-center gap-2 text-[13px] text-bone">
+                    <span className="h-1.5 w-1.5 rounded-full bg-teal" aria-hidden="true" />
+                    点开即玩，无需下载
                   </div>
-                  <p className="mono mt-2 text-muted">
+                  <span className="mono text-[11px] text-bone-dim">
+                    {formatBytes(game.webBuild?.bytes ?? 0)}
+                  </span>
+                </div>
+              </button>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-4 border-y border-line py-5">
+                <div className="min-w-0">
+                  <div className="text-[15px] font-semibold">
+                    {game.download?.platform} 客户端
+                  </div>
+                  <p className="mono mt-1.5 text-[11.5px] text-muted">
                     {game.download && formatBytes(game.download.bytes)} · v{game.version} ·{' '}
                     {game.download?.arch}
                   </p>
                 </div>
                 <button
-                  className="btn btn-primary"
+                  className="btn btn-primary shrink-0"
                   onClick={() => toast.push('开始下载（演示环境不会真的下载）', 'ok')}
                 >
-                  <DownloadSimple size={15} weight="bold" /> 下载客户端
+                  <DownloadSimple size={15} weight="bold" /> 下载
                 </button>
               </div>
             )}
-          </div>
+          </section>
 
           {/* 画面：主图 + 缩略图切换 */}
           <section className="mt-6">
@@ -224,7 +226,7 @@ export default function GameDetail() {
                 放大看
               </button>
             </div>
-            <div className="relative overflow-hidden rounded-none border border-line-soft">
+            <div className="relative overflow-hidden bg-ink-900">
               <AnimatePresence mode="wait">
                 <motion.img
                   key={shots[shot]}
