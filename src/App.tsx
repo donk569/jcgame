@@ -12,6 +12,8 @@ import Creator from './pages/Creator';
 import Dashboard from './pages/Dashboard';
 import NotFound from './pages/NotFound';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import AuthCallback from './pages/AuthCallback';
 import { useAppStore } from './store/AppStore';
 
 function ScrollToTop() {
@@ -51,6 +53,8 @@ function PageFrame() {
         <Route path="/creator/:handle" element={<Creator />} />
         <Route path="/me" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </motion.main>

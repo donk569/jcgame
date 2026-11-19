@@ -17,6 +17,7 @@ import {
 import type { Game, Draft, DraftForm, Comment, Profile } from '@/api/types';
 import * as backend from '@/api/backend';
 import * as auth from '@/api/auth';
+import * as captcha from '@/api/captcha';
 
 const KEY = 'jcgame:state:v2';
 
@@ -97,8 +98,10 @@ interface StoreValue extends PersistedState {
   login: (handle: string, name: string) => void;
   logout: () => void;
   signIn: (email: string, password: string) => Promise<{ handle: string; name: string }>;
-  signUp: (email: string, password: string) => Promise<{ handle: string; name: string }>;
-  signInGithub: () => Promise<void>;
+  signUp: (email: string, password: string, captchaToken: string, handle?: string, name?: string) => Promise<{ needsConfirmation: boolean; email: string }>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
+  resendCode: (email: string) => Promise<void>;
+  signInGithub: (from: string) => Promise<void>;
   signOut: () => Promise<void>;
   /** 后端会话（Supabase Auth 用户），本地演示登录时为 null */
   backendUserId: string | null;
@@ -119,12 +122,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       if (!alive) return;
       if (u) {
         setBackendUserId(u.id);
+        // OAuth 回调后必须同步 user，否则 RequireAuth 不认登录态
+        setState((prev) => ({ ...prev, user: { handle: u.handle, name: u.name } }));
         void hydrate(u.id);
       }
     });
     const off = auth.onAuthChange((u) => {
       if (!alive) return;
       setBackendUserId(u?.id ?? null);
+      // 登录/退出都同步 user 状态；回调页 exchange 成功后会走这里
+      setState((prev) => ({
+        ...prev,
+        user: u ? { handle: u.handle, name: u.name } : null,
+      }));
       if (u) void hydrate(u.id);
     });
     return () => {
@@ -267,13 +277,26 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await hydrate(u.id);
         return u;
       },
-      signUp: async (email: string, password: string) => {
-        const u = await auth.signUpWithEmail(email, password);
-        commit((prev) => ({ ...prev, user: { handle: u.handle, name: u.name } }));
-        return u;
+      signUp: async (email: string, password: string, captchaToken: string, handle?: string, name?: string) => {
+        // 服务端原子消费滑块凭证：无效/已用/过期/邮箱不符 → 直接拒绝，用户根本不会被创建
+        const captchaOk = await captcha.consumeCaptchaToken(captchaToken, email);
+        if (!captchaOk) throw new Error('人机验证凭证无效或已过期，请重新验证后再注册');
+        const result = await auth.signUpWithEmail(email, password, handle, name);
+        if (!result.needsConfirmation) {
+          commit((prev) => ({ ...prev, user: { handle: result.user.handle, name: result.user.name } }));
+        }
+        return { needsConfirmation: result.needsConfirmation, email };
       },
-      signInGithub: async () => {
-        await auth.signInWithGithub();
+      verifyEmail: async (email: string, code: string) => {
+        const u = await auth.verifyEmailCode(email, code);
+        commit((prev) => ({ ...prev, user: { handle: u.handle, name: u.name } }));
+        await hydrate(u.id);
+      },
+      resendCode: async (email: string) => {
+        await auth.resendConfirmation(email);
+      },
+      signInGithub: async (from: string) => {
+        await auth.signInWithGithub(from);
       },
       signOut: async () => {
         await auth.signOut();
