@@ -51,11 +51,10 @@ create or replace function public._captcha_rate_allow(p_k text, p_max int, p_win
 returns boolean language plpgsql security definer set search_path = public as $$
 declare v record;
 begin
+  -- 先把 key 原子地建出来（并发下不会撞主键），再加锁计数
+  insert into public.captcha_rate(k, n, window_start) values (p_k, 0, now())
+    on conflict (k) do nothing;
   select * into v from public.captcha_rate where k = p_k for update;
-  if not found then
-    insert into public.captcha_rate(k, n, window_start) values (p_k, 1, now());
-    return true;
-  end if;
   if now() - v.window_start > p_window then
     update public.captcha_rate set n = 1, window_start = now() where k = p_k;
     return true;
@@ -155,7 +154,7 @@ begin
   update public.captcha_challenge set consumed_at = now() where id = c.id;
   v_exp := now() + interval '10 minutes';
   insert into public.captcha_token(email, challenge_id, expires_at)
-  values (lower(trim(p_email)), c.id, v_exp) returning token into v_token;
+  values (lower(trim(p_email)), c.id, v_exp) returning captcha_token.token into v_token;
 
   return query select v_token, v_exp;
 end $$;
