@@ -23,7 +23,10 @@ export const supabase = HAS_BACKEND
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        // PKCE：OAuth 回调带 ?code=，由 /auth/callback 页用 exchangeCodeForSession 换取 session。
+        // detectSessionInUrl 关掉，避免 SDK 自动处理与手动 exchange 冲突（否则回调参数对不上）。
+        flowType: 'pkce',
+        detectSessionInUrl: false,
       },
     })
   : null;
