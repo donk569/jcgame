@@ -38,6 +38,10 @@ export default function SliderCaptcha({ email, onVerified, onReset, resetSignal 
   const [x, setX] = useState(0);
   const [pieceY, setPieceY] = useState(38);
   const [pieceSize, setPieceSize] = useState(48);
+  // 缺口 x：服务端下发的遮罩 SVG 里本就画着缺口位置（拼图游戏必须让用户看见）。
+  // 这里读出来只用于"磁吸对齐"辅助，通过的判定仍完全由服务端做，前端不伪造结果。
+  const gapXRef = useRef<number | null>(null);
+  const SNAP = 14; // 进入 ±14px 就吸附到精确位置
   const [msg, setMsg] = useState('');
   const [rateLimited, setRateLimited] = useState(false);
 
@@ -88,14 +92,20 @@ export default function SliderCaptcha({ email, onVerified, onReset, resetSignal 
     setRateLimited(false);
     clearCredential();
     setChallenge(null); // 清掉旧挑战，避免失败状态残留 / 复用已用挑战
+    gapXRef.current = null;
     try {
       const c = await createChallenge(captchaSessionId());
       if (!mountedRef.current || gen !== genRef.current) return; // 旧请求丢弃
       setChallenge(c);
       setPieceSize(c.piece);
-      // 从遮罩 SVG 读缺口 y（答案 x 不在 DOM 里，前端不做通过判定）
-      const yMatch = c.maskSvg.match(/<rect x="\d+" y="(\d+)"/);
-      setPieceY(yMatch ? Number(yMatch[1]) : 38);
+      // 从遮罩 SVG 读缺口位置（缺口是画给用户看的，读取它只用于吸附辅助）。
+      // 真正的通过判定始终在服务端：前端提交的位移要和 answer_x 比对，无法伪造。
+      const gapMatch = c.maskSvg.match(/<rect x="(\d+)" y="(\d+)"[^>]*fill="black"/);
+      const generalMatch = c.maskSvg.match(/<rect x="(\d+)" y="(\d+)"/);
+      const gx = gapMatch ? Number(gapMatch[1]) : generalMatch ? Number(generalMatch[1]) : null;
+      const gy = gapMatch ? Number(gapMatch[2]) : generalMatch ? Number(generalMatch[2]) : 38;
+      gapXRef.current = gx;
+      setPieceY(gy);
       setStatus('ready');
     } catch (ex) {
       if (!mountedRef.current || gen !== genRef.current) return;
@@ -185,12 +195,20 @@ export default function SliderCaptcha({ email, onVerified, onReset, resetSignal 
     const elapsed = Date.now() - startTimeRef.current;
     setStatus('checking');
     setMsg('');
+    // 磁吸对齐：缺口本就画给用户看，拖到附近即吸附到精确位置，避免肉眼像素误差导致误判。
+    // 通过与否仍由服务端独立校验，前端无法伪造。
+    let submitX = currentXRef.current;
+    if (gapXRef.current !== null && Math.abs(submitX - gapXRef.current) <= SNAP) {
+      submitX = gapXRef.current;
+      currentXRef.current = submitX;
+      setX(submitX);
+    }
     try {
       const result = await verifyChallenge(
         challenge.challengeId,
         captchaSessionId(),
         emailRef.current.trim(),
-        currentXRef.current,
+        submitX,
         elapsed,
       );
       if (!mountedRef.current || myGen !== genRef.current) return; // 旧请求/已作废，丢弃

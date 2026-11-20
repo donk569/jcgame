@@ -1,13 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Eye, EyeSlash, Envelope } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, Check, Eye, EyeSlash, Envelope, WarningCircle } from '@phosphor-icons/react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { LogoMark } from '@/components/Logo';
 import SliderCaptcha from '@/components/SliderCaptcha';
 import { useAppStore } from '@/store/AppStore';
 import { HAS_BACKEND, passwordError, friendlyAuthError } from '@/api/auth';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// 邮箱格式校验：本地部分不含空格、不能连续点/首尾点；域名含点且顶级域至少 2 位字母。
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+const emailError = (v: string): string | null => {
+  const e = v.trim();
+  if (!e) return '请填写邮箱';
+  if (e.includes('..') || e.startsWith('.') || e.split('@')[0]?.endsWith('.')) return '邮箱格式不对，检查 "." 的位置';
+  if (!EMAIL_RE.test(e)) return '邮箱格式不对，例如 you@example.com';
+  if (e.length > 254) return '邮箱地址太长了';
+  return null;
+};
 
 /**
  * 注册页：完整纵向引导表单，与简洁登录页形成明显差异。
@@ -50,7 +59,8 @@ export default function Register() {
   const validate = (): string | null => {
     if (!handle.trim()) return '请填写用户名';
     if (!/^[a-zA-Z0-9_\-]{2,24}$/.test(handle.trim())) return '用户名只能用字母、数字、下划线和横线，2–24 位';
-    if (!EMAIL_RE.test(email.trim())) return '邮箱格式不太对，检查一下';
+    const eErr = emailError(email);
+    if (eErr) return eErr;
     const pwErr = passwordError(password);
     if (pwErr) return pwErr;
     if (password !== confirm) return '两次输入的密码不一致';
@@ -170,7 +180,14 @@ export default function Register() {
                 <div>
                   <label className="field-label" htmlFor="reg-email">邮箱</label>
                   <input id="reg-email" type="email" className="input" value={email}
-                    onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" />
+                    onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email"
+                    aria-invalid={email.length > 0 && emailError(email) !== null} />
+                  {email.length > 0 && (
+                    <p className="mt-1 flex items-center gap-1 text-[11px]"
+                      style={{ color: emailError(email) ? 'var(--color-danger)' : 'var(--color-ok)' }}>
+                      {emailError(email) ? <><WarningCircle size={11} /> {emailError(email)}</> : <><Check size={11} weight="bold" /> 邮箱格式正确</>}
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
