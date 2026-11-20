@@ -27,6 +27,7 @@ export default function Register() {
   const [showPw, setShowPw] = useState(false);
   const [code, setCode] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaReset, setCaptchaReset] = useState(0); // 递增=强制滑块换新挑战
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -90,9 +91,13 @@ export default function Register() {
         finish();
       }
     } catch (ex) {
-      setErr(friendlyAuthError(ex));
-      // 凭证被消费后若后续失败，要求重新滑块（服务端不允许重复使用）
+      const msg = friendlyAuthError(ex);
+      setErr(msg);
+      // 凭证不可复用：清空并强制滑块换一张新挑战，避免"显示通过但提交说没验证"的死卡
       setCaptchaToken('');
+      if (msg.includes('人机验证') || msg.includes('凭证') || msg.includes('验证')) {
+        setCaptchaReset((n) => n + 1);
+      }
     } finally {
       setBusy(false);
     }
@@ -208,7 +213,7 @@ export default function Register() {
                   <span className="mono text-[11px] text-brand">02</span> 安全验证
                 </p>
                 {HAS_BACKEND ? (
-                  <SliderCaptcha email={email} onVerified={onCaptchaVerified} onReset={onCaptchaReset} />
+                  <SliderCaptcha email={email} onVerified={onCaptchaVerified} onReset={onCaptchaReset} resetSignal={captchaReset} />
                 ) : (
                   <p className="text-[12px] text-muted">本地演示模式，无需人机验证。</p>
                 )}

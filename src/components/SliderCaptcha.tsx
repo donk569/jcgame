@@ -28,9 +28,11 @@ interface Props {
   email: string;
   onVerified: (token: string) => void;
   onReset: () => void;
+  /** 父组件递增此值可强制重新加载一次挑战（提交失败后重新验证用） */
+  resetSignal?: number;
 }
 
-export default function SliderCaptcha({ email, onVerified, onReset }: Props) {
+export default function SliderCaptcha({ email, onVerified, onReset, resetSignal = 0 }: Props) {
   const [status, setStatus] = useState<Status>('idle');
   const [challenge, setChallenge] = useState<CaptchaChallenge | null>(null);
   const [x, setX] = useState(0);
@@ -46,14 +48,13 @@ export default function SliderCaptcha({ email, onVerified, onReset }: Props) {
   const currentXRef = useRef(0);
   const mountedRef = useRef(true);
 
-  // 用 ref 固定父组件回调，避免父组件重渲染导致 load 引用抖动、effect 反复重载
+  // 用 ref 固定父组件回调和 email 值：只提供最新值，绝不因输入变化触发重新加载
   const onVerifiedRef = useRef(onVerified);
   const onResetRef = useRef(onReset);
   const emailRef = useRef(email);
-  useEffect(() => {
-    onVerifiedRef.current = onVerified;
-    onResetRef.current = onReset;
-  }, [onVerified, onReset]);
+  onVerifiedRef.current = onVerified;
+  onResetRef.current = onReset;
+  emailRef.current = email;
 
   // 请求序号：每次 load / verify 都 +1，异步回调只认最新序号，旧结果一律丢弃
   const genRef = useRef(0);
@@ -61,7 +62,6 @@ export default function SliderCaptcha({ email, onVerified, onReset }: Props) {
   const verifyingRef = useRef(false);
   // 失败自动重试的定时器，卸载/新请求时清掉
   const retryTimerRef = useRef<number | null>(null);
-  const emailChangeHandledRef = useRef(email);
 
   const clearRetryTimer = () => {
     if (retryTimerRef.current !== null) {
@@ -123,14 +123,15 @@ export default function SliderCaptcha({ email, onVerified, onReset }: Props) {
     };
   }, []);
 
-  // 邮箱变化：凭证绑定旧邮箱，作废并换新挑战（空依赖，靠 ref 比较，不触发重载循环）
+  // 邮箱变化不再重载挑战（输入任何字段都不该让验证图片刷新）。
+  // 只有父组件显式递增 resetSignal（提交失败需重新验证）时才强制换一张。
+  const resetSignalRef = useRef(resetSignal);
   useEffect(() => {
-    if (emailChangeHandledRef.current !== email) {
-      emailChangeHandledRef.current = email;
-      emailRef.current = email;
-      if (bootRef.current) void loadRef.current();
+    if (resetSignalRef.current !== resetSignal) {
+      resetSignalRef.current = resetSignal;
+      void loadRef.current();
     }
-  }, [email]);
+  }, [resetSignal]);
 
   const beginDrag = (clientX: number) => {
     if (status !== 'ready' || verifyingRef.current) return;
