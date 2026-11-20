@@ -17,7 +17,6 @@ import {
 import type { Game, Draft, DraftForm, Comment, Profile } from '@/api/types';
 import * as backend from '@/api/backend';
 import * as auth from '@/api/auth';
-import * as captcha from '@/api/captcha';
 
 const KEY = 'jcgame:state:v2';
 
@@ -278,10 +277,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         return u;
       },
       signUp: async (email: string, password: string, captchaToken: string, handle?: string, name?: string) => {
-        // 服务端原子消费滑块凭证：无效/已用/过期/邮箱不符 → 直接拒绝，用户根本不会被创建
-        const captchaOk = await captcha.consumeCaptchaToken(captchaToken, email);
-        if (!captchaOk) throw new Error('人机验证凭证无效或已过期，请重新验证后再注册');
-        const result = await auth.signUpWithEmail(email, password, handle, name);
+        // 滑块凭证随注册请求交给服务端：auth.users 的 BEFORE INSERT Trigger
+        // 会在创建用户的同一事务里原子消费并校验，前端/API 直调都无法绕过。
+        // 前端不预先消费，避免与 Trigger 双重消费导致凭证失效。
+        const result = await auth.signUpWithEmail(email, password, captchaToken, handle, name);
         if (!result.needsConfirmation) {
           commit((prev) => ({ ...prev, user: { handle: result.user.handle, name: result.user.name } }));
         }

@@ -71,6 +71,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
 export async function signUpWithEmail(
   email: string,
   password: string,
+  captchaToken: string,
   handle?: string,
   name?: string,
 ): Promise<SignUpResult> {
@@ -79,9 +80,12 @@ export async function signUpWithEmail(
     email,
     password,
     options: {
+      // captcha_token 写进元数据，由 auth.users 的 BEFORE INSERT Trigger
+      // 在服务端原子消费校验——前端或 API 直接调用都无法绕过。
       data: {
         handle: handle || handleFromEmail(email),
         name: name || handle || handleFromEmail(email),
+        captcha_token: captchaToken,
       },
     },
   });
