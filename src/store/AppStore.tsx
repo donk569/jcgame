@@ -48,6 +48,9 @@ const EMPTY: PersistedState = {
   user: null,
 };
 
+/** 有真后端时，用户身份只认 Supabase session，绝不相信 localStorage 里的 user。 */
+const TRUST_LOCAL_USER = !auth.HAS_BACKEND;
+
 function load(): PersistedState {
   try {
     // 兼容 v1（只有三个数组）
@@ -66,7 +69,8 @@ function load(): PersistedState {
       comments: Array.isArray(p.comments) && p.comments.length > 0
         ? (p.comments as Comment[])
         : SEED_COMMENTS,
-      user: p.user ?? null,
+      // 后端模式：不恢复本地 user，避免 session 已失效却显示"已登录"的假象
+      user: TRUST_LOCAL_USER ? (p.user ?? null) : null,
     };
   } catch {
     return EMPTY;
@@ -75,7 +79,9 @@ function load(): PersistedState {
 
 function persist(next: PersistedState) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    // 后端模式：user 不落盘（身份以 Supabase session 为准），其余数据照存
+    const toSave: PersistedState = TRUST_LOCAL_USER ? next : { ...next, user: null };
+    localStorage.setItem(KEY, JSON.stringify(toSave));
   } catch {
     // 隐私模式 / 配额满：静默降级为内存态
   }
@@ -104,6 +110,8 @@ interface StoreValue extends PersistedState {
   signOut: () => Promise<void>;
   /** 后端会话（Supabase Auth 用户），本地演示登录时为 null */
   backendUserId: string | null;
+  /** 会话是否已确认（后端模式下首屏为 false，getSession 返回后为 true） */
+  authReady: boolean;
   /** 从后端拉取该用户的收藏/点赞/关注/草稿 */
   syncFromBackend: () => Promise<void>;
 }
@@ -113,6 +121,8 @@ const StoreContext = createContext<StoreValue | null>(null);
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(load);
   const [backendUserId, setBackendUserId] = useState<string | null>(null);
+  // 会话是否已确认：后端模式下首屏要等 getSession 返回，避免刷新瞬间把已登录用户误踢去登录页
+  const [authReady, setAuthReady] = useState(!auth.HAS_BACKEND);
 
   // Supabase 会话：登录后把 user_id 记下来，写操作同步落库
   useEffect(() => {
@@ -125,9 +135,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         setState((prev) => ({ ...prev, user: { handle: u.handle, name: u.name } }));
         void hydrate(u.id);
       }
+    }).finally(() => {
+      if (alive) setAuthReady(true);
     });
     const off = auth.onAuthChange((u) => {
       if (!alive) return;
+      setAuthReady(true);
       setBackendUserId(u?.id ?? null);
       // 登录/退出都同步 user 状态；回调页 exchange 成功后会走这里
       setState((prev) => ({
@@ -167,11 +180,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(state));
-    } catch {
-      // 隐私模式 / 配额满：静默降级为内存态
-    }
+    persist(state);
   }, [state]);
 
   // 所有写操作统一走 commit：setState + 同步落盘，避免 effect 时序问题
@@ -218,6 +227,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       backendUserId,
+      authReady,
       syncFromBackend: () => (backendUserId ? hydrate(backendUserId) : Promise.resolve()),
       toggleSaved: makeToggle('saved'),
       toggleLiked: makeToggle('liked'),
@@ -303,7 +313,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       logout: () => commit((prev) => ({ ...prev, user: null })),
     }),
-    [state, makeToggle, commit, backendUserId, hydrate],
+    [state, makeToggle, commit, backendUserId, authReady, hydrate],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

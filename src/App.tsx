@@ -25,8 +25,16 @@ function ScrollToTop() {
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user } = useAppStore();
+  const { user, authReady } = useAppStore();
   const location = useLocation();
+  // 会话还没确认完：先别判定未登录，否则刷新受保护页会被瞬间踢去登录
+  if (!authReady) {
+    return (
+      <div className="wrap flex min-h-[60vh] items-center justify-center py-20">
+        <span className="text-[13px] text-muted">正在确认登录状态…</span>
+      </div>
+    );
+  }
   if (!user) {
     return <Navigate to={`/login?from=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   }
