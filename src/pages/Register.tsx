@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { LogoMark } from '@/components/Logo';
 import SliderCaptcha from '@/components/SliderCaptcha';
 import { useAppStore } from '@/store/AppStore';
-import { HAS_BACKEND, passwordError, friendlyAuthError } from '@/api/auth';
+import { HAS_BACKEND, passwordError, friendlyAuthError, emailHasVerifiedAccount } from '@/api/auth';
 
 // 邮箱格式校验：本地部分不含空格、不能连续点/首尾点；域名含点且顶级域至少 2 位字母。
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
@@ -39,6 +39,7 @@ export default function Register() {
   const [captchaReset, setCaptchaReset] = useState(0); // 递增=强制滑块换新挑战
 
   const [busy, setBusy] = useState(false);
+  const [emailExists, setEmailExists] = useState(false); // 邮箱已有验证账号
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
   const [countdown, setCountdown] = useState(0);
@@ -89,6 +90,20 @@ export default function Register() {
 
     const v = validate();
     if (v) { setErr(v); return; }
+
+    // 注册前查邮箱：已有验证账号就直接提示去登录，不让用户干等一封不会来的验证码
+    if (HAS_BACKEND) {
+      setBusy(true);
+      try {
+        if (await emailHasVerifiedAccount(email.trim())) {
+          setEmailExists(true);
+          setErr('这个邮箱已经注册过了，请直接登录');
+          return;
+        }
+      } catch { /* 检查异常不阻断注册 */ }
+      finally { setBusy(false); }
+    }
+
     setBusy(true);
     try {
       // 服务端先原子消费滑块凭证，通过后才创建用户并发出验证码
@@ -180,7 +195,7 @@ export default function Register() {
                 <div>
                   <label className="field-label" htmlFor="reg-email">邮箱</label>
                   <input id="reg-email" type="email" className="input" value={email}
-                    onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email"
+                    onChange={(e) => { setEmail(e.target.value); setEmailExists(false); }} placeholder="you@example.com" autoComplete="email"
                     aria-invalid={email.length > 0 && emailError(email) !== null} />
                   {email.length > 0 && (
                     <p className="mt-1 flex items-center gap-1 text-[11px]"
@@ -256,11 +271,24 @@ export default function Register() {
             </section>
           )}
 
-          {err && (
+          {err && !emailExists && (
             <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-danger)' }}>{err}</p>
           )}
 
-          <button type="submit" disabled={busy} className="btn btn-primary mt-1 h-[46px] w-full justify-center gap-2 text-[14px]">
+          {emailExists && (
+            <div className="rounded-[4px] border p-3 text-[12px] leading-relaxed" style={{ borderColor: 'var(--color-warm)', background: 'var(--color-warm-soft)' }}>
+              <p className="flex items-center gap-1.5 font-medium" style={{ color: 'var(--color-warm)' }}>
+                <WarningCircle size={14} /> 这个邮箱已经注册过了
+              </p>
+              <p className="mt-1 text-bone-dim">不用重复注册，直接登录就能进入工作室。</p>
+              <Link to={`/login${from !== '/me' ? `?from=${encodeURIComponent(from)}` : ''}`}
+                className="btn btn-soft mt-2 w-full justify-center gap-2">
+                去登录 <ArrowRight size={14} weight="bold" />
+              </Link>
+            </div>
+          )}
+
+          <button type="submit" disabled={busy || emailExists} className="btn btn-primary mt-1 h-[46px] w-full justify-center gap-2 text-[14px]">
             {busy ? '处理中…' : step === 'code' ? '验证并进入' : '创建账号'}
             {!busy && <ArrowRight size={15} weight="bold" />}
           </button>

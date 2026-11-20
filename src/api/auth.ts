@@ -38,6 +38,14 @@ export function passwordError(pw: string): string | null {
   return null;
 }
 
+/** 注册前查该邮箱是否已有【已验证】账号（服务端 RPC，只返回布尔，不泄露任何用户信息） */
+export async function emailHasVerifiedAccount(email: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('email_has_verified_account', { p_email: email });
+  if (error) return false; // 检查失败不阻断注册，交给后续流程
+  return data === true;
+}
+
 /** 把 Supabase 的英文错误翻成人话，兜底显示原文 */
 export function friendlyAuthError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err ?? '');
