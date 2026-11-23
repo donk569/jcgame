@@ -1,0 +1,114 @@
+[
+  {
+    "slug": "acorn-house",
+    "title": "Acorn House",
+    "titleCn": "橡果小屋",
+    "tagline": "把一颗橡果，慢慢改成一个家。",
+    "cover": "covers/acorn-house.webp",
+    "keyart": null
+  },
+  {
+    "slug": "circuit-bloom",
+    "title": "Circuit Bloom",
+    "titleCn": "电路花期",
+    "tagline": "每按对一个节拍，花就开一瓣。",
+    "cover": "covers/circuit-bloom.webp",
+    "keyart": null
+  },
+  {
+    "slug": "dimension-leap",
+    "title": "Dimension Leap",
+    "titleCn": "维度转换者",
+    "tagline": "折叠空间，把不可能走通的路走通。",
+    "cover": "covers/dimension-leap.webp",
+    "keyart": "keyart/dimension-keyart.webp"
+  },
+  {
+    "slug": "half-light",
+    "title": "Half Light",
+    "titleCn": "半光",
+    "tagline": "灯灭了以后，路才会显出来。",
+    "cover": "covers/half-light.webp",
+    "keyart": null
+  },
+  {
+    "slug": "ink-tide",
+    "title": "Ink Tide",
+    "titleCn": "墨潮",
+    "tagline": "水墨画的留白里，藏着会动的东西。",
+    "cover": "covers/ink-tide.webp",
+    "keyart": null
+  },
+  {
+    "slug": "iron-harvest",
+    "title": "Iron Harvest",
+    "titleCn": "铁收割",
+    "tagline": "用收割机改装成的战争机器，去守住最后一片麦田。",
+    "cover": "covers/iron-harvest.webp",
+    "keyart": null
+  },
+  {
+    "slug": "last-train",
+    "title": "Last Train",
+    "titleCn": "末班车",
+    "tagline": "凌晨三点，站台上还有一个人没上车。",
+    "cover": "covers/last-train.webp",
+    "keyart": null
+  },
+  {
+    "slug": "neon-drift",
+    "title": "Neon Drift",
+    "titleCn": "霓虹漂移",
+    "tagline": "雨夜、没有刹车、只有一条街和八秒钟。",
+    "cover": "covers/neon-drift.webp",
+    "keyart": "keyart/neon-drift-keyart.webp"
+  },
+  {
+    "slug": "paper-kite",
+    "title": "Paper Kite",
+    "titleCn": "纸鸢",
+    "tagline": "把一根线，放到云的那一边。",
+    "cover": "covers/paper-kite.webp",
+    "keyart": null
+  },
+  {
+    "slug": "pixel-ronin",
+    "title": "Pixel Ronin",
+    "titleCn": "像素浪人",
+    "tagline": "每一次死亡，都会让桥上的枫叶落得更快。",
+    "cover": "covers/pixel-ronin.webp",
+    "keyart": null
+  },
+  {
+    "slug": "rooftop-dash",
+    "title": "Rooftop Dash",
+    "titleCn": "天台疾行",
+    "tagline": "屋顶之间，只有一步的距离。",
+    "cover": "covers/rooftop-dash.webp",
+    "keyart": "keyart/rooftop-dash-keyart.webp"
+  },
+  {
+    "slug": "teeth-of-the-deep",
+    "title": "Teeth of the Deep",
+    "titleCn": "深喉",
+    "tagline": "灯照到的地方，就是它想让你看到的地方。",
+    "cover": "covers/teeth-of-the-deep.webp",
+    "keyart": null
+  },
+  {
+    "slug": "tundra-courier",
+    "title": "Tundra Courier",
+    "titleCn": "冻原信使",
+    "tagline": "极夜里，把一封信送到地图上不存在的地方。",
+    "cover": "covers/tundra-courier.webp",
+    "keyart": null
+  },
+  {
+    "slug": "void-basket",
+    "title": "Void Basket",
+    "titleCn": "零重力篮球",
+    "tagline": "在地面不存在的球场，规则只剩一条：球进框。",
+    "cover": "covers/void-basket.webp",
+    "keyart": null
+  }
+]
