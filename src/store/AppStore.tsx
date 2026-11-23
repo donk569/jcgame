@@ -11,6 +11,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -99,7 +100,8 @@ interface StoreValue extends PersistedState {
   addPublished: (game: Game) => void;
   saveProfile: (profile: Profile) => void;
   addComment: (comment: Comment) => void;
-  replyComment: (id: string, reply: string) => void;
+  replyComment: (id: string, reply: string) => Promise<void>;
+  refreshComments: () => Promise<void>;
   login: (handle: string, name: string) => void;
   logout: () => void;
   signIn: (email: string, password: string) => Promise<{ handle: string; name: string }>;
@@ -121,6 +123,8 @@ const StoreContext = createContext<StoreValue | null>(null);
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(load);
   const [backendUserId, setBackendUserId] = useState<string | null>(null);
+  const [commentInbox, setCommentInbox] = useState<{ owner: string; comments: Comment[] } | null>(null);
+  const inboxRequest = useRef(0);
   // 会话是否已确认：后端模式下首屏要等 getSession 返回，避免刷新瞬间把已登录用户误踢去登录页
   const [authReady, setAuthReady] = useState(!auth.HAS_BACKEND);
 
@@ -223,9 +227,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     [state, commit, backendUserId, sync],
   );
 
+  const refreshComments = useCallback(async () => {
+    const request = ++inboxRequest.current;
+    if (!backendUserId) return;
+    const comments = await backend.fetchCreatorComments(backendUserId);
+    if (request === inboxRequest.current) setCommentInbox({ owner: backendUserId, comments });
+  }, [backendUserId]);
+
   const value = useMemo<StoreValue>(
     () => ({
       ...state,
+      comments: auth.HAS_BACKEND
+        ? (commentInbox?.owner === backendUserId ? commentInbox.comments : [])
+        : state.comments,
+      refreshComments,
       backendUserId,
       authReady,
       syncFromBackend: () => (backendUserId ? hydrate(backendUserId) : Promise.resolve()),
@@ -269,14 +284,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       addComment: (comment) =>
         commit((prev) => ({ ...prev, comments: [comment, ...prev.comments] })),
-      replyComment: (id, reply) => {
+      replyComment: async (id, reply) => {
+        const text = reply.trim();
+        if (!text || text.length > 1000) throw new Error('请输入 1–1000 字的回复。');
+        const markReplied = (comments: Comment[]) => comments.map((comment) =>
+          comment.id === id ? { ...comment, reply: text, unread: false } : comment,
+        );
+        if (auth.HAS_BACKEND) {
+          if (!backendUserId) throw new Error('登录后才能回复留言。');
+          await backend.replyComment(id, text);
+          setCommentInbox((prev) => prev?.owner === backendUserId
+            ? { ...prev, comments: markReplied(prev.comments) }
+            : prev);
+          return;
+        }
         commit((prev) => ({
           ...prev,
-          comments: prev.comments.map((c) =>
-            c.id === id ? { ...c, reply, unread: false } : c,
-          ),
+          comments: markReplied(prev.comments),
         }));
-        if (backendUserId) sync(() => backend.replyComment(id, reply));
       },
       login: (handle, name) => commit((prev) => ({ ...prev, user: { handle, name } })),
       // 真后端登录（邮箱密码 / GitHub OAuth）
@@ -313,7 +338,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       logout: () => commit((prev) => ({ ...prev, user: null })),
     }),
-    [state, makeToggle, commit, backendUserId, authReady, hydrate],
+    [state, makeToggle, commit, backendUserId, authReady, hydrate, commentInbox, refreshComments],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

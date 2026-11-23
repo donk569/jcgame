@@ -13,6 +13,7 @@ export interface WebBuild {
   engineVersion: string;
   /** 运行域名（隔离域），正式环境由平台分配 */
   host: string;
+  launchUrl?: string;
 }
 
 export interface DownloadBuild {
@@ -20,6 +21,10 @@ export interface DownloadBuild {
   arch: string;
   bytes: number;
   file: string;
+  storagePath?: string;
+  fileName?: string;
+  desktopShortcut?: boolean;
+  archiveFallback?: { file: string; bytes: number };
   requirements: { label: string; value: string }[];
 }
 
@@ -106,6 +111,7 @@ export interface DraftForm {
   coverName: string;
   shotNames: string[];
   runMode: 'web' | 'download';
+  launchUrl?: string;
   engine: string;
   engineOther: string;
   version: string;

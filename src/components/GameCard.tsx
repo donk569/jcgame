@@ -85,6 +85,21 @@ export function GameTile({ game }: { game: Game }) {
   );
 }
 
+export function CatalogTile({ game }: { game: Game }) {
+  return (
+    <Link to={`/game/${game.slug}`} className="catalog-tile">
+      <div className="catalog-tile-art">
+        <img src={game.cover} alt="" width={480} height={600} loading="lazy" />
+      </div>
+      <div className="catalog-tile-caption">
+        <h3>{game.titleCn}</h3>
+        <span>{game.runMode === 'web' ? '网页试玩' : '下载'}</span>
+      </div>
+      <p className="catalog-tile-credit"><span>{game.studio.name}</span><span>{game.engine}</span></p>
+    </Link>
+  );
+}
+
 /** 横向列表行：搜索结果、排行榜、相似游戏用 */
 export function GameRow({ game, index }: { game: Game; index?: number }) {
   return (

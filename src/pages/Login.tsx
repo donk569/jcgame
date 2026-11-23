@@ -59,19 +59,15 @@ export default function Login() {
   };
 
   return (
-    <div className="wrap flex min-h-[72vh] items-center justify-center py-16">
+    <div className="wrap inner-page auth-page">
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.34, ease: [0.22, 0.68, 0, 1] }}
-        className="w-full max-w-[380px]"
+        className="auth-form"
       >
         <LogoMark size={34} />
-        <p className="mono mt-6 text-[11px] uppercase tracking-[0.22em] text-muted">JCGame · 工作室</p>
-        <h1 className="serif-title mt-2 text-[32px] leading-tight">欢迎回来</h1>
-        <p className="mt-2 text-[13px] leading-relaxed text-muted">
-          登录 JCGame，继续探索你的游戏世界。
-        </p>
+        <h1>登录 JCGame</h1>
 
         <form onSubmit={submit} className="mt-9 space-y-4">
           {HAS_BACKEND ? (
@@ -91,7 +87,7 @@ export default function Login() {
               <div>
                 <div className="flex items-center justify-between">
                   <label className="field-label" htmlFor="login-password">密码</label>
-                  <span className="text-[11px] text-muted-dim">忘记密码？用邮箱验证码登录即将开放</span>
+                  <Link to="/reset-password" className="link-underline text-[12px] text-bone-dim">忘记密码？</Link>
                 </div>
                 <div className="relative">
                   <input

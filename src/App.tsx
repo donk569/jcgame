@@ -14,6 +14,8 @@ import NotFound from './pages/NotFound';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
+import ResetPassword from './pages/ResetPassword';
+import Moderation from './pages/Moderation';
 import { useAppStore } from './store/AppStore';
 
 function ScrollToTop() {
@@ -62,6 +64,8 @@ function PageFrame() {
         <Route path="/me" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/moderation" element={<RequireAuth><Moderation /></RequireAuth>} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

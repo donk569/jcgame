@@ -5,8 +5,10 @@
  * 接真后端时：把 api/index.ts 的查询函数改成异步 + 在这里加 loading/错误态，
  * 页面代码不需要改动（这是 P0 拆分数据层的全部意义）。
  */
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import * as api from '@/api';
+import { fetchGameBySlug } from '@/api/backend';
+import type { Game } from '@/api/types';
 import { useAppStore } from '@/store/AppStore';
 import {
   subscribeRemote,
@@ -31,24 +33,55 @@ export function useGames() {
   const { published } = useAppStore();
   const snap = useRemoteData();
   return useMemo(
-    () => [...published, ...snap.games],
+    () => USE_REMOTE ? snap.games : [...published, ...snap.games],
     [published, snap.games],
   );
 }
 
 export function useGame(slug: string | undefined) {
   const games = useGames();
-  return useMemo(
-    () => (slug ? games.find((g) => g.slug === slug) : undefined),
-    [slug, games],
-  );
+  const localGame = useMemo(() => games.find((game) => game.slug === slug), [games, slug]);
+  const needsLookup = USE_REMOTE && Boolean(slug) && !localGame;
+  const [resolved, setResolved] = useState<{ slug: string; game?: Game }>();
+
+  useEffect(() => {
+    if (!needsLookup || !slug) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      controller.abort();
+      setResolved({ slug });
+    }, 5000);
+    fetchGameBySlug(slug, controller.signal).then(
+      (game) => {
+        if (!controller.signal.aborted) setResolved({ slug, game });
+      },
+      () => {
+        if (!controller.signal.aborted) setResolved({ slug });
+      },
+    ).finally(() => window.clearTimeout(timeout));
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [needsLookup, slug]);
+
+  const lookedUp = resolved?.slug === slug ? resolved : undefined;
+  return { game: localGame ?? lookedUp?.game, isLoading: needsLookup && !lookedUp };
 }
 
 export function useCreator(handle: string | undefined) {
-  return useMemo(
-    () => (handle ? api.getCreator(handle) : undefined),
-    [handle],
-  );
+  const { creators, games } = useRemoteData();
+  return useMemo(() => {
+    if (!handle) return undefined;
+    const registered = creators.find((creator) => creator.handle === handle);
+    if (registered) return registered;
+
+    const work = games.find((game) => game.studio.handle === handle);
+    return work ? {
+      handle, name: work.studio.name, bio: '', followers: 0, since: '',
+      location: '', links: [], accent: 'var(--color-brand)',
+    } : undefined;
+  }, [creators, games, handle]);
 }
 
 export function useCreators() {

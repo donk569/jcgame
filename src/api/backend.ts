@@ -114,6 +114,24 @@ export async function fetchGames(): Promise<Game[]> {
   return (data as DbGame[]).map(rowToGame);
 }
 
+export async function fetchGameBySlug(slug: string, signal: AbortSignal): Promise<Game | undefined> {
+  if (!supabase) return undefined;
+  const { data, error } = await supabase.from('games').select('*').eq('slug', slug).abortSignal(signal).maybeSingle();
+  if (error) throw error;
+  return data ? rowToGame(data as DbGame) : undefined;
+}
+
+export async function searchGames(query: string, limit: number, offset: number, signal: AbortSignal): Promise<Game[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('search_games', {
+    search_query: query,
+    page_size: limit,
+    page_offset: offset,
+  }).abortSignal(signal);
+  if (error) throw error;
+  return (data as DbGame[]).map(rowToGame);
+}
+
 export async function fetchCreators(): Promise<Creator[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from('creators').select('*');
@@ -296,7 +314,8 @@ export async function insertGame(game: Game, ownerId: string): Promise<void> {
     web_build: game.webBuild ?? null,
     download: game.download ?? null,
     changelog: game.changelog ?? [],
-    featured: game.featured ?? false,
+    featured: false,
+    review_state: 'pending',
     owner: ownerId,
   });
   if (error) throw error;
@@ -309,7 +328,6 @@ export async function insertGame(game: Game, ownerId: string): Promise<void> {
 export interface DbComment {
   id: string;
   game_slug: string | null;
-  author: string | null;
   author_name: string;
   body: string;
   reply: string | null;
@@ -328,21 +346,52 @@ export function rowToComment(r: DbComment): Comment {
   };
 }
 
+const COMMENT_FIELDS = 'id,game_slug,author_name,body,reply,created_at';
+
 export async function fetchComments(gameSlug?: string): Promise<Comment[]> {
   if (!supabase) return [];
-  let q = supabase.from('comments').select('*').order('created_at', { ascending: false });
+  let q = supabase.from('comments').select(COMMENT_FIELDS).order('created_at', { ascending: false });
   if (gameSlug) q = q.eq('game_slug', gameSlug);
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbComment[]).map(rowToComment);
 }
 
+export async function fetchCommentPage(gameSlug: string, offset: number, pageSize: number) {
+  if (!supabase) return { comments: [], hasMore: false };
+  const { data, error } = await supabase
+    .from('comments')
+    .select(COMMENT_FIELDS)
+    .eq('game_slug', gameSlug)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(offset, offset + pageSize);
+  if (error) throw error;
+  return { comments: data.slice(0, pageSize).map(rowToComment), hasMore: data.length > pageSize };
+}
+
+export async function fetchCreatorComments(ownerId: string): Promise<Comment[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('comments')
+    .select(`${COMMENT_FIELDS},games!inner(owner)`)
+    .eq('games.owner', ownerId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return data.map(rowToComment);
+}
+
+export async function insertComment(gameSlug: string, body: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('post_game_comment', { p_game_slug: gameSlug, p_body: body });
+  if (error) throw error;
+}
+
 export async function replyComment(id: string, reply: string): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase
-    .from('comments')
-    .update({ reply, replied_at: new Date().toISOString() })
-    .eq('id', id);
+  const { error } = await supabase.rpc('reply_to_game_comment', { p_comment_id: id, p_reply: reply });
   if (error) throw error;
 }
 

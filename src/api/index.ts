@@ -3,7 +3,7 @@
  *
  * 三种模式（按 VITE_DATA_SOURCE 决定）：
  *   mock   —— 全部读 src/api/mock.ts（离线可用，零配置）
- *   remote —— 读 Supabase，失败或未建表时自动回落到 mock
+ *   remote —— 只读 Supabase 公开作品
  *   auto   —— 有配置就用远程，没有就用 mock
  *
  * 关键设计：远程数据通过「快照 + 订阅」注入，
@@ -46,8 +46,8 @@ export interface RemoteSnapshot {
 }
 
 let snapshot: RemoteSnapshot = {
-  games: mockGames,
-  creators: mockCreators,
+  games: USE_REMOTE ? [] : mockGames,
+  creators: USE_REMOTE ? [] : mockCreators,
   loaded: false,
   error: null,
 };
@@ -70,10 +70,10 @@ export function getRemoteSnapshot(): RemoteSnapshot {
 }
 
 /**
- * 拉一次远端数据。失败时保持 mock 快照，并把错误记在快照里（页面可显示提示）。
+ * 拉一次远端数据。失败时清空快照并记录错误。
  * 只在远端模式下有意义。
  */
-/** 远端请求超时（毫秒）。超时立刻回落 mock，不拖慢首屏。 */
+/** 远端请求超时（毫秒）。 */
 const REMOTE_TIMEOUT = 4000;
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -83,25 +83,30 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-export async function refreshRemote(): Promise<void> {
-  if (!USE_REMOTE) return;
+let pendingRefresh: Promise<void> | undefined;
+
+export function refreshRemote(): Promise<void> {
+  if (!USE_REMOTE) return Promise.resolve();
+  pendingRefresh ??= loadRemote().finally(() => { pendingRefresh = undefined; });
+  return pendingRefresh;
+}
+
+async function loadRemote(): Promise<void> {
   try {
     const [games, creators] = await withTimeout(
       Promise.all([backend.fetchGames(), backend.fetchCreators()]),
       REMOTE_TIMEOUT,
     );
     snapshot = {
-      // 数据库为空时回落 mock，避免站点空白
-      games: games.length ? games : mockGames,
-      creators: creators.length ? creators : mockCreators,
+      games,
+      creators,
       loaded: true,
       error: null,
     };
   } catch (e) {
-    // 表没建 / 网络不通时回落 mock，站点不至于空白
     snapshot = {
-      games: mockGames,
-      creators: mockCreators,
+      games: [],
+      creators: [],
       loaded: true,
       error: e instanceof Error ? e.message : String(e),
     };

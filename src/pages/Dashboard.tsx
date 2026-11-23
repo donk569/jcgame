@@ -4,56 +4,30 @@ import { animate, motion, useReducedMotion } from 'framer-motion';
 import { DotsThree, Heart } from '@phosphor-icons/react';
 import { GamePost } from '@/components/GameCard';
 import { useToast } from '@/components/Toast';
-import { getGames, getCurrentUser } from '@/api';
+import { getCurrentUser } from '@/api';
+import type { Game } from '@/api/types';
+import { fetchApprovedWorks, fetchCreatorStats, type ActivityDay, type CreatorStats } from '@/api/stats';
+import { useCanModerate } from '@/api/moderation';
+import { supabase } from '@/api/supabase';
+import { MySubmissions } from '@/components/MySubmissions';
+import { NotificationInbox } from '@/components/NotificationInbox';
 import { formatBytes, formatCount } from '@/lib/format';
-import { useGamesByCreator } from '@/hooks/useData';
+import { useGames } from '@/hooks/useData';
 import { useAppStore } from '@/store/AppStore';
 
-const games = getGames();
-const currentUser = getCurrentUser();
-
-/* ------------------------------------------------------------------ */
-/* 演示数据（正式环境由接口返回）                                      */
-/* ------------------------------------------------------------------ */
+const demoUser = getCurrentUser();
 
 const tabs = [
   { key: 'works', label: '作品' },
   { key: 'drafts', label: '草稿' },
   { key: 'saved', label: '收藏' },
   { key: 'liked', label: '点赞' },
+  { key: 'notifications', label: '通知' },
   { key: 'profile', label: '资料' },
   { key: 'settings', label: '设置' },
 ] as const;
 
 type TabKey = (typeof tabs)[number]['key'];
-
-const trend = [
-  { day: '一', date: '11-11', v: 1.2 },
-  { day: '二', date: '11-12', v: 1.8 },
-  { day: '三', date: '11-13', v: 0.9 },
-  { day: '四', date: '11-14', v: 2.4 },
-  { day: '五', date: '11-15', v: 2.1 },
-  { day: '六', date: '11-16', v: 3.2 },
-  { day: '日', date: '11-17', v: 1.6 },
-];
-
-type Act = {
-  kind: 'ship' | 'collect' | 'comment' | 'draft' | 'edit';
-  text: string;
-  target: string;
-  time: string;
-  cover?: string;
-  fresh?: boolean;
-};
-
-const activity: Act[] = [
-  { kind: 'ship', text: '上架', target: '半光', time: '刚刚', cover: games[11].cover, fresh: true },
-  { kind: 'collect', text: '被 12 人收藏', target: '半光', time: '2 小时前', cover: games[11].cover },
-  { kind: 'comment', text: '收到 3 条留言', target: '半光', time: '昨天', cover: games[11].cover },
-  { kind: 'draft', text: '保存草稿', target: '雾中列车', time: '11-16' },
-];
-
-
 
 /* ------------------------------------------------------------------ */
 /* 数字：衬线 + 滚动                                                    */
@@ -85,21 +59,64 @@ function AnimatedNumber({ value }: { value: number }) {
 
 export default function Dashboard() {
   const store = useAppStore();
+  const { backendUserId, refreshComments } = store;
+  const canModerate = useCanModerate();
+  const games = useGames();
+  const [account, setAccount] = useState<{ id: string; email: string; joined: string }>();
+  const currentAccount = account?.id === backendUserId ? account : undefined;
+  const currentUser = store.user
+    ? {
+        ...store.user,
+        bio: store.profile?.bio ?? '',
+        email: backendUserId ? currentAccount?.email ?? '' : demoUser.email,
+        joined: backendUserId ? currentAccount?.joined ?? '' : demoUser.joined,
+      }
+    : demoUser;
+  const [statsState, setStatsState] = useState<{ owner: string; stats?: CreatorStats; failed?: boolean }>();
+  const [worksState, setWorksState] = useState<{ owner: string; games?: Game[]; failed?: boolean }>();
+  const stats = statsState?.owner === backendUserId ? statsState.stats : undefined;
+  const statsFailed = statsState?.owner === backendUserId && statsState.failed;
+  const approvedWorks = worksState?.owner === backendUserId ? worksState.games : undefined;
+  const worksFailed = worksState?.owner === backendUserId && worksState.failed;
+
+  useEffect(() => {
+    if (!backendUserId) return;
+    const controller = new AbortController();
+    void fetchCreatorStats(controller.signal).then(
+      (value) => { if (!controller.signal.aborted) setStatsState({ owner: backendUserId, stats: value }); },
+      () => { if (!controller.signal.aborted) setStatsState({ owner: backendUserId, failed: true }); },
+    );
+    void fetchApprovedWorks(backendUserId, controller.signal).then(
+      (games) => { if (!controller.signal.aborted) setWorksState({ owner: backendUserId, games }); },
+      () => { if (!controller.signal.aborted) setWorksState({ owner: backendUserId, failed: true }); },
+    );
+    void supabase?.auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      if (!controller.signal.aborted && user?.id === backendUserId) {
+        setAccount({ id: user.id, email: user.email ?? '', joined: user.created_at.slice(0, 10) });
+      }
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, [backendUserId]);
+
+  useEffect(() => {
+    void refreshComments().catch(() => undefined);
+  }, [refreshComments]);
+
   const [tab, setTab] = useState<TabKey>('works');
   const toast = useToast();
   const reduce = useReducedMotion();
   const [profile, setProfile] = useState(() =>
     store.profile ?? { name: currentUser.name, bio: currentUser.bio, site: 'https://example.com' },
   );
-  const [notify, setNotify] = useState({ comment: true, update: true, weekly: false });
-  const mine = useGamesByCreator(currentUser.handle);
+  const mine = backendUserId
+    ? approvedWorks ?? []
+    : games.filter((game) => game.studio.handle === currentUser.handle);
   const featured = mine[0];
   const others = mine.slice(1);
   // 收藏 / 点赞列表跟随全局状态，空列表时走页面里已有的空状态
   const saved = games.filter((g) => store.saved.includes(g.slug));
   const liked = games.filter((g) => store.liked.includes(g.slug));
-  const totalPlays = mine.reduce((s, g) => s + g.plays, 0);
-  const totalLikes = mine.reduce((s, g) => s + g.likes, 0);
 
   const fade = (delay: number) => ({
     initial: reduce ? false : { opacity: 0, y: 10 },
@@ -108,7 +125,7 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="pb-6">
+    <div className="inner-page dashboard-page">
       {/* ================= 身份：通栏，不做卡片 ================= */}
       <section className="relative border-b border-line">
         {featured && (
@@ -122,7 +139,7 @@ export default function Dashboard() {
           </>
         )}
 
-        <div className="wrap relative pb-7 pt-8">
+        <div className="wrap relative pb-8">
           <div className="flex flex-wrap items-start gap-5">
             {/* 头像：细线圆环 + 衬线字，不用紫色方块 */}
             <motion.button
@@ -137,19 +154,16 @@ export default function Dashboard() {
             <div className="min-w-0 flex-1">
               <motion.h1
                 {...fade(0.04)}
-                className="serif-title text-[clamp(1.7rem,3vw,2.3rem)] text-bone"
+                className="dashboard-name"
               >
                 {currentUser.name}
               </motion.h1>
               <motion.div
                 {...fade(0.08)}
-                className="mono mt-2 flex flex-wrap items-center gap-x-2 text-muted"
+                className="mt-2 flex flex-wrap items-center gap-x-3 text-[13px] text-muted"
               >
                 <span>@{currentUser.handle}</span>
-                <span className="text-line-bright">·</span>
-                <span>独立开发者</span>
-                <span className="text-line-bright">·</span>
-                <span>{currentUser.joined} 加入</span>
+                {currentUser.joined && <span>{currentUser.joined} 加入</span>}
                 <button
                   onClick={() => setTab('profile')}
                   className="ml-1 text-bone-dim underline-offset-4 hover:text-brand hover:underline"
@@ -164,17 +178,17 @@ export default function Dashboard() {
                 {currentUser.bio}
               </motion.p>
             </div>
-
-
+            {canModerate && <Link to="/moderation" className="btn btn-ghost btn-sm">审核工作台</Link>}
           </div>
 
           {/* 数据：一行，靠细线分隔，不占视觉中心 */}
           {tab === 'works' && (
             <motion.dl {...fade(0.2)} className="mt-7 flex flex-wrap items-end gap-x-10 gap-y-4">
               {[
-                [totalPlays, '累计试玩', 'var(--color-bone)'],
-                [totalLikes, '累计收藏', 'var(--color-bone)'],
-                [mine.length, '已发布', 'var(--color-teal)'],
+                [stats?.plays, '累计试玩', 'var(--color-bone)'],
+                [stats?.downloads, '累计下载', 'var(--color-bone)'],
+                [stats?.collections, '当前收藏', 'var(--color-bone)'],
+                [backendUserId ? approvedWorks?.length : mine.length, '已上架', 'var(--color-teal)'],
                 [store.drafts.length, '草稿', 'var(--color-amber)'],
               ].map(([n, label, color]) => (
                 <div key={label as string} className="flex items-baseline gap-2">
@@ -182,7 +196,7 @@ export default function Dashboard() {
                     className="serif text-[24px] leading-none"
                     style={{ color: color as string }}
                   >
-                    <AnimatedNumber value={n as number} />
+                    {typeof n === 'number' ? <AnimatedNumber value={n} /> : '—'}
                   </dd>
                   <dt className="text-[11.5px] text-muted">{label as string}</dt>
                 </div>
@@ -194,8 +208,8 @@ export default function Dashboard() {
 
       {/* ================= 分区：下划线选中 ================= */}
       <div className="wrap">
-        <div className="mt-2 flex gap-7 overflow-x-auto border-b border-line no-scrollbar">
-          {tabs.map((t) => (
+        <div className="dashboard-tabs flex gap-7 overflow-x-auto border-b border-line">
+          {tabs.filter((t) => t.key !== 'notifications' || backendUserId).map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -227,6 +241,10 @@ export default function Dashboard() {
             <div className="col-span-12 lg:col-span-8">
               {featured ? (
                 <FeaturedWork game={featured} />
+              ) : backendUserId && !approvedWorks ? (
+                <p className="py-9 text-[13px] text-bone-dim">
+                  {worksFailed ? '暂时无法读取你的作品，请刷新重试。' : '正在读取你的作品…'}
+                </p>
               ) : (
                 <Empty
                   title="还没有上架的作品"
@@ -250,6 +268,8 @@ export default function Dashboard() {
                 </section>
               )}
 
+              <MySubmissions />
+
               <section className="mt-8">
                 <SectionRule title="草稿" accent="var(--color-amber)" count={store.drafts.length} note="只有你能看到" />
                 <DraftsList />
@@ -262,6 +282,7 @@ export default function Dashboard() {
                   <span className="mono text-[10.5px] text-paper-muted">{store.comments.length}</span>
                 </div>
                 <div>
+                  {store.comments.length === 0 && <p className="py-4 text-[13px] text-paper-muted">还没有留言。</p>}
                   {store.comments.map((c) => (
                     <div
                       key={c.id}
@@ -281,11 +302,14 @@ export default function Dashboard() {
                             <span className="h-[5px] w-[5px] bg-paper-ink/70" aria-label="未回复" />
                           )}
                           <button
-                            onClick={() => {
-                              const text = window.prompt(`回复 ${c.name}：`, c.reply ?? '');
-                              if (text !== null && text.trim()) {
-                                store.replyComment(c.id, text.trim());
+                            onClick={async () => {
+                              const text = window.prompt(`回复 ${c.name}：`, c.reply ?? '')?.trim();
+                              if (!text) return;
+                              try {
+                                await store.replyComment(c.id, text);
                                 toast.push('已回复', 'ok');
+                              } catch {
+                                toast.push('回复未发送，请重试');
                               }
                             }}
                             className="ml-auto text-[11.5px] text-paper-ink/45 hover:text-paper-ink"
@@ -309,8 +333,10 @@ export default function Dashboard() {
 
             <aside className="col-span-12 mt-6 lg:col-span-4 lg:mt-0">
               <div className="space-y-8 lg:sticky lg:top-[92px]">
-                <ActivityFeed />
-                <TrafficChart />
+                <TrafficChart
+                  trend={stats?.trend}
+                  status={statsFailed ? '暂时无法读取统计。' : backendUserId ? '正在读取统计…' : '连接后端后可查看流量统计。'}
+                />
               </div>
             </aside>
           </div>
@@ -451,6 +477,10 @@ export default function Dashboard() {
           </div>
         )}
 
+        {tab === 'notifications' && backendUserId && (
+          <NotificationInbox key={backendUserId} userId={backendUserId} />
+        )}
+
         {tab === 'settings' && (
           <div className="max-w-[560px]">
             <SectionRule title="账号" accent="var(--color-muted)" />
@@ -459,44 +489,7 @@ export default function Dashboard() {
                 <label className="field-label" htmlFor="s-email">
                   邮箱
                 </label>
-                <input id="s-email" className="input" defaultValue={currentUser.email} />
-              </div>
-
-              <div>
-                <div className="field-label">通知</div>
-                <div>
-                  {(
-                    [
-                      ['comment', '有人评论我的游戏'],
-                      ['update', '我关注的开发者发布新作'],
-                      ['weekly', '每周精选邮件'],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <div
-                      key={key}
-                      className="flex items-center justify-between border-b border-line-soft py-3"
-                    >
-                      <span className="text-[13px] text-bone-dim">{label}</span>
-                      <button
-                        role="switch"
-                        aria-checked={notify[key]}
-                        aria-label={label}
-                        onClick={() => setNotify({ ...notify, [key]: !notify[key] })}
-                        className={`relative h-[20px] w-[36px] rounded-full border transition-colors ${
-                          notify[key] ? 'border-brand/60 bg-brand/20' : 'border-line bg-ink-700'
-                        }`}
-                      >
-                        <motion.span
-                          layout
-                          transition={{ type: 'spring', stiffness: 400, damping: 26 }}
-                          className={`absolute top-[2px] h-[14px] w-[14px] rounded-full ${
-                            notify[key] ? 'left-[18px] bg-brand' : 'left-[2px] bg-muted'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <input id="s-email" className="input" type="email" value={currentUser.email} readOnly />
               </div>
 
               <div>
@@ -534,7 +527,7 @@ export default function Dashboard() {
 /* 主推作品：细线框 + 海报 + 规格行（不重复统计）                       */
 /* ------------------------------------------------------------------ */
 
-function FeaturedWork({ game }: { game: (typeof games)[number] }) {
+function FeaturedWork({ game }: { game: Game }) {
   const toast = useToast();
   const reduce = useReducedMotion();
   const [hover, setHover] = useState(false);
@@ -666,108 +659,41 @@ function DraftsList() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* 动态：细线时间轴                                                    */
-/* ------------------------------------------------------------------ */
-
-function ActivityFeed() {
-  const reduce = useReducedMotion();
-  return (
-    <section className="bg-paper px-5 pb-4 pt-4 text-paper-ink">
-      <div className="flex items-baseline justify-between border-b border-paper-ink/15 pb-2">
-        <h2 className="serif text-[15px]">动态</h2>
-        <span className="mono text-[10.5px] text-paper-muted">{activity.length} 条</span>
-      </div>
-      <ol className="relative mt-3">
-        <span className="absolute bottom-2 left-[6px] top-2 w-px bg-paper-ink/15" aria-hidden="true" />
-        {activity.map((a, i) => (
-          <motion.li
-            key={a.text + a.time}
-            initial={reduce ? false : { opacity: 0, y: 6 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.05 * i, duration: 0.35, ease: [0.22, 0.68, 0, 1] }}
-            className="relative flex gap-3 pb-3.5 last:pb-0"
-          >
-            <span
-              className={`relative z-[1] mt-[5px] h-[7px] w-[7px] shrink-0 ${
-                a.fresh ? 'bg-paper-ink' : 'border border-paper-ink/45 bg-paper'
-              }`}
-              aria-hidden="true"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-[12px] leading-relaxed">
-                <span className="text-paper-ink">{a.target}</span>
-                <span className="mx-1.5 text-paper-ink/30">·</span>
-                <span className="text-paper-ink/75">{a.text}</span>
-              </p>
-              <span className="mono mt-1 block text-[10px] text-paper-muted">{a.time}</span>
-            </div>
-          </motion.li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* 7 天：细线图，柱子用品牌紫，今天用暖色                               */
-/* ------------------------------------------------------------------ */
-
-function TrafficChart() {
-  const [hover, setHover] = useState<number | null>(null);
-  const max = Math.max(...trend.map((t) => t.v));
+function TrafficChart({ trend, status }: { trend?: ActivityDay[]; status: string }) {
+  const [metric, setMetric] = useState<'plays' | 'downloads'>('plays');
+  const label = metric === 'plays' ? '试玩' : '下载';
+  const max = Math.max(1, ...(trend ?? []).map((day) => day[metric]));
 
   return (
     <section>
-      <SectionRule title="7 天试玩" accent="var(--color-brand)" note="峰值 3.2 万" />
-      <div className="relative mt-4 flex h-[72px] items-end gap-[3px]">
-        {trend.map((t, i) => {
-          const active = hover === i;
-          const isToday = i === trend.length - 1;
-          return (
-            <button
-              key={t.day}
-              onMouseEnter={() => setHover(i)}
-              onMouseLeave={() => setHover(null)}
-              onFocus={() => setHover(i)}
-              onBlur={() => setHover(null)}
-              className="relative flex h-full flex-1 flex-col justify-end"
-              aria-label={`${t.date} 试玩 ${t.v} 万`}
-            >
-              {active && (
-                <motion.span
-                  initial={{ opacity: 0, y: 3 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="absolute -top-0.5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-[3px] border border-line-bright bg-ink-950 px-1.5 py-0.5 text-[10px] text-bone"
-                >
-                  {t.date} · {t.v} 万
-                </motion.span>
-              )}
-              <motion.span
-                initial={{ height: 0 }}
-                animate={{ height: `${(t.v / max) * 100}%` }}
-                transition={{ delay: 0.08 + i * 0.04, type: 'spring', stiffness: 200, damping: 26 }}
-                className={`w-full rounded-[2px] transition-colors ${
-                  active ? 'bg-brand' : isToday ? 'bg-warm/70' : 'bg-ink-500'
-                }`}
-              />
+      <SectionRule title="近 7 日流量" accent="var(--color-brand)" note="北京时间" />
+      {!trend ? (
+        <p className="mt-4 text-[13px] text-bone-dim" role="status">{status}</p>
+      ) : (
+        <>
+          <div className="mt-3 flex gap-2" role="group" aria-label="流量指标">
+            <button className="chip" data-active={metric === 'plays'} aria-pressed={metric === 'plays'} onClick={() => setMetric('plays')}>
+              试玩
             </button>
-          );
-        })}
-      </div>
-      <div className="mt-2 flex gap-[3px] border-t border-line-soft pt-2">
-        {trend.map((t, i) => (
-          <span
-            key={t.day}
-            className={`mono flex-1 text-center text-[10px] ${
-              i === trend.length - 1 ? 'text-warm' : 'text-muted-dim'
-            }`}
-          >
-            {t.day}
-          </span>
-        ))}
-      </div>
+            <button className="chip" data-active={metric === 'downloads'} aria-pressed={metric === 'downloads'} onClick={() => setMetric('downloads')}>
+              下载
+            </button>
+          </div>
+          <ol className="mt-4 grid grid-cols-7 gap-1">
+            {trend.map((day) => (
+              <li key={day.date} className="flex min-w-0 flex-col items-center gap-2"
+                aria-label={`${day.date} ${label} ${day[metric]} 次`} title={`${day.date} ${label} ${day[metric]} 次`}
+              >
+                <span className="flex h-[76px] w-full items-end border-b border-line" aria-hidden="true">
+                  <span className="w-full bg-brand/70" style={{ height: `${day[metric] / max * 100}%` }} />
+                </span>
+                <small className="text-[10px] text-bone-dim">{day.date.slice(5)}</small>
+                <span className="mono text-[11px] text-bone">{formatCount(day[metric])}</span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
     </section>
   );
 }

@@ -714,3 +714,462 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Inner pages share typography and rhythm with the front page. */
+.inner-page {
+  padding-block: clamp(28px, 5vw, 64px) clamp(56px, 8vw, 96px);
+}
+
+.inner-heading {
+  margin-bottom: clamp(22px, 4vw, 42px);
+}
+
+.inner-heading h1,
+.creator-name,
+.dashboard-name,
+.auth-form h1 {
+  font-size: clamp(2rem, 4.4vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.catalog-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.catalog-count {
+  color: var(--color-bone-dim);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.catalog-controls,
+.catalog-options,
+.catalog-search {
+  display: flex;
+  align-items: center;
+}
+
+.catalog-controls {
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.catalog-search {
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+  padding-inline: 12px;
+  border-bottom: 1px solid var(--color-line-bright);
+  background: var(--color-ink-800);
+  color: var(--color-bone-dim);
+}
+
+.catalog-search:focus-within {
+  border-color: var(--color-brand);
+}
+
+.catalog-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  outline: none;
+  background: transparent;
+  color: var(--color-bone);
+}
+
+.catalog-options {
+  gap: 10px;
+}
+
+.catalog-options :is(select, button) {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line-bright);
+  color: var(--color-bone-dim);
+  font-size: 0.875rem;
+}
+
+.catalog-options select {
+  background: var(--color-ink-900);
+}
+
+.catalog-options button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.catalog-options button:hover,
+.catalog-options button[aria-expanded='true'] {
+  color: var(--color-bone);
+  border-color: var(--color-brand);
+}
+
+.catalog-categories {
+  display: flex;
+  gap: clamp(16px, 3vw, 34px);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-line-bright);
+  scrollbar-width: thin;
+}
+
+.catalog-categories button {
+  flex: none;
+  min-height: 46px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-bone-dim);
+  font-size: 0.875rem;
+}
+
+.catalog-categories button:hover,
+.catalog-categories button[aria-pressed='true'] {
+  color: var(--color-bone);
+}
+
+.catalog-categories button[aria-pressed='true'] {
+  border-bottom-color: var(--color-brand);
+}
+
+.catalog-filter {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(90vw, 375px);
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--color-line-bright);
+  background: var(--color-ink-850);
+  color: var(--color-bone);
+}
+
+.catalog-filter::backdrop {
+  background: rgb(11 10 9 / 72%);
+}
+
+.catalog-applied {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding-block: 12px 0;
+  color: var(--color-bone-dim);
+  font-size: 0.8125rem;
+}
+
+.catalog-page .catalog-grid,
+.catalog-page .inner-empty {
+  margin-top: 26px;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(22px, 4vw, 40px) clamp(12px, 2.5vw, 28px);
+}
+
+.catalog-tile {
+  display: block;
+  min-width: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.catalog-tile-art {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--color-ink-800);
+}
+
+.catalog-tile-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 420ms ease;
+}
+
+.catalog-tile:hover img {
+  transform: scale(1.025);
+}
+
+.catalog-tile-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+  margin-top: 12px;
+}
+
+.catalog-tile-caption h3 {
+  overflow-wrap: anywhere;
+  font-size: clamp(1rem, 1.7vw, 1.35rem);
+  text-wrap: initial;
+}
+
+.catalog-tile:is(:hover, :focus-visible) h3 {
+  color: var(--color-brand-hi);
+}
+
+.catalog-tile-caption > span,
+.catalog-tile-credit {
+  color: var(--color-bone-dim);
+  font-size: 0.75rem;
+}
+
+.catalog-tile-credit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  margin-top: 4px;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+.inner-empty {
+  border-top: 1px solid var(--color-line);
+  padding-block: 35px;
+}
+
+.inner-empty p {
+  margin: 8px 0 18px;
+  color: var(--color-bone-dim);
+}
+
+.inner-back {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--color-bone-dim);
+  font-size: 0.875rem;
+}
+
+.inner-back:hover {
+  color: var(--color-brand-hi);
+}
+
+.game-masthead,
+.creator-masthead {
+  display: grid;
+  gap: clamp(18px, 4vw, 56px);
+  align-items: center;
+  border-bottom: 1px solid var(--color-line-bright);
+  padding-bottom: clamp(24px, 4vw, 48px);
+}
+
+.game-masthead-art {
+  width: min(100%, 220px);
+}
+
+.game-masthead-art img,
+.creator-feature img {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+}
+
+.game-masthead-art img {
+  aspect-ratio: 4 / 5;
+}
+
+.has-keyart .game-masthead-art {
+  width: 100%;
+}
+
+.has-keyart .game-masthead-art img,
+.creator-feature img {
+  aspect-ratio: 16 / 9;
+}
+
+.game-masthead-copy,
+.creator-masthead-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.game-actions,
+.creator-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-actions {
+  margin-top: 22px;
+}
+
+.game-body {
+  display: grid;
+  align-items: start;
+  gap: clamp(28px, 5vw, 72px);
+  margin-top: 32px;
+}
+
+.game-section + .game-section {
+  margin-top: clamp(32px, 5vw, 58px);
+}
+
+.game-section h2 {
+  font-size: clamp(1.25rem, 2.3vw, 1.55rem);
+}
+
+.game-filmstrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-top: 8px;
+  padding: 3px;
+}
+
+.game-filmstrip button {
+  flex: none;
+}
+
+.game-facts {
+  border-top: 1px solid var(--color-line);
+  padding-top: 20px;
+}
+
+.game-fact-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-line);
+}
+
+.game-fact-list dd {
+  overflow-wrap: anywhere;
+}
+
+.creator-feature span {
+  display: block;
+  padding-block: 8px;
+  color: var(--color-bone-dim);
+  font-size: 0.8125rem;
+}
+
+.creator-feature:hover span {
+  color: var(--color-brand-hi);
+}
+
+.upload-layout {
+  display: grid;
+  align-items: start;
+  gap: clamp(26px, 5vw, 68px);
+}
+
+.upload-layout > * {
+  min-width: 0;
+}
+
+.dashboard-tabs {
+  margin-bottom: 12px;
+  scrollbar-width: thin;
+}
+
+.auth-page,
+.missing-page {
+  min-height: 62vh;
+  display: grid;
+  align-content: center;
+}
+
+.auth-form,
+.missing-page {
+  width: 100%;
+  max-width: 440px;
+  margin-inline: auto;
+}
+
+.auth-form h1 {
+  margin-top: 20px;
+}
+
+.missing-page {
+  max-width: 680px;
+  justify-items: start;
+}
+
+.inner-page :focus-visible {
+  outline: 2px solid var(--color-brand-hi);
+  outline-offset: 3px;
+}
+
+.catalog-search input:focus-visible {
+  outline: none;
+}
+
+@media (min-width: 560px) {
+  .catalog-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 800px) {
+  .game-masthead {
+    grid-template-columns: minmax(0, 210px) minmax(0, 1fr);
+  }
+
+  .game-masthead.has-keyart {
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  }
+
+  .creator-masthead.has-art {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+
+  .game-body {
+    grid-template-columns: minmax(0, 2fr) minmax(225px, 1fr);
+  }
+
+  .game-facts {
+    align-self: stretch;
+    border-top: 0;
+    border-left: 1px solid var(--color-line);
+    padding: 0 0 0 clamp(18px, 3vw, 36px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .catalog-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .upload-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+  }
+}
+
+@media (max-width: 500px) {
+  .catalog-controls {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .catalog-search {
+    flex-basis: 100%;
+  }
+
+  .catalog-options {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-tile-art img {
+    transition: none;
+  }
+}

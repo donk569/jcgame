@@ -20,19 +20,34 @@ import {
 import { GamePost, GameRow } from '@/components/GameCard';
 import { Reveal } from '@/components/Reveal';
 import { SectionHead, TextLink } from '@/components/SectionHead';
-import { getCategories, getCreators, getEngines } from '@/api';
-import { useGames } from '@/hooks/useData';
+import { getCategories, getEngines } from '@/api';
+import type { Game } from '@/api/types';
+import { useGames, useRemoteData } from '@/hooks/useData';
 import { formatCount } from '@/lib/format';
 
 const categories = getCategories();
-const creators = getCreators();
 const engines = getEngines();
 
 export default function Home() {
   const games = useGames();
+  const { loaded, error, creators } = useRemoteData();
+
+  if (!games.length) {
+    return (
+      <div className="wrap inner-page inner-empty">
+        <h1>独立游戏</h1>
+        <p role="status">{error ? '暂时无法读取作品，请刷新重试。' : loaded ? '暂无公开作品。' : '正在加载作品…'}</p>
+        {loaded && !error && <Link to="/upload" className="btn btn-primary">提交作品</Link>}
+      </div>
+    );
+  }
+  return <HomeContent games={games} creators={creators} />;
+}
+
+function HomeContent({ games, creators }: { games: Game[]; creators: ReturnType<typeof useRemoteData>['creators'] }) {
   const byNew = [...games].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const featured = games[0];
-  const hot = [games[8], games[3], games[6], games[7], games[10], games[1]];
+  const hot = [8, 3, 6, 7, 10, 1].map((index) => games[index]).filter(Boolean);
   const reduce = useReducedMotion();
   const heroRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -142,6 +157,7 @@ export default function Home() {
             {/* 画中画：主面板 + 两张浮出的封面 */}
             <div className="col-span-12 lg:col-span-5">
               <div className="relative mx-auto max-w-[400px] lg:ml-auto lg:mr-0">
+                {games[8] && (
                 <motion.div
                   style={reduce ? undefined : { x: fx1, y: fy1 }}
                   className="absolute -left-[104px] -top-[74px] hidden w-[92px] rotate-[-8deg] lg:block"
@@ -149,7 +165,7 @@ export default function Home() {
                   <Link to={`/game/${games[8].slug}`} className="block">
                     <img
                       src={games[8].cover}
-                      alt={games[1].titleCn}
+                      alt={games[8].titleCn}
                       className="rounded-none border border-white/15 shadow-[0_20px_40px_-16px_#000]"
                     />
                     <span className="mt-1.5 block truncate text-center text-[11px] text-bone-dim">
@@ -157,6 +173,7 @@ export default function Home() {
                     </span>
                   </Link>
                 </motion.div>
+                )}
                 <Link
                   to={`/game/${featured.slug}`}
                   className="group relative block overflow-hidden"
@@ -174,11 +191,11 @@ export default function Home() {
                     <div className="min-w-0">
                       <div className="truncate text-[17px] font-semibold">{featured.titleCn}</div>
                       <div className="mono mt-1 truncate text-[11px] text-bone-dim">
-                        Unity / WebGL / 62 MB
+                        {featured.engine} / {featured.runMode === 'web' ? '网页版' : '客户端'}
                       </div>
                     </div>
                     <span className="btn btn-primary btn-sm shrink-0">
-                      <Play size={12} weight="fill" /> 试玩
+                      <Play size={12} weight="fill" /> 查看游戏
                     </span>
                   </div>
                 </Link>
@@ -260,18 +277,18 @@ export default function Home() {
             <div className="grid-12 items-start">
               <div className="col-span-12 lg:col-span-8">
                 <GamePost
-                  game={games[2]}
+                  game={games[2] ?? featured}
                   ratio="wide"
                   className="h-[300px] w-full sm:h-[340px] lg:h-[380px] shadow-[0_30px_60px_-30px_#000]"
                 />
               </div>
-              <div className="col-span-12 lg:col-span-4">
+              {games[4] && <div className="col-span-12 lg:col-span-4">
                 <GamePost game={games[4]} ratio="portrait" className="h-[300px] w-full sm:h-[340px] lg:h-[380px]" />
-              </div>
+              </div>}
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[games[6], games[7], games[10]].map((g) => (
+              {[games[6], games[7], games[10]].filter(Boolean).map((g) => (
                 <Link
                   key={g.slug}
                   to={`/game/${g.slug}`}
@@ -392,8 +409,8 @@ export default function Home() {
             kind="web"
             icon={<Browser size={16} weight="duotone" />}
             title="网页试玩"
-            desc="上传 WebGL / HTML5 / Web Export 构建，平台分配独立运行域名，玩家点开就跑。"
-            points={['无需安装，首屏 3 秒内可交互', '独立域名 + 沙箱 iframe 运行', '首包建议控制在 80 MB 以内']}
+            desc="提交独立站点上的网页游戏入口，通过审核后可在平台内运行。"
+            points={['无需安装', '独立域名 + 沙箱 iframe 运行', '首包建议控制在 80 MB 以内']}
             shot={games[0].shots?.[1]}
             sample="Unity WebGL · Godot Web · Cocos Web · 静态站点"
           />
@@ -401,7 +418,7 @@ export default function Home() {
             kind="download"
             icon={<DownloadSimple size={16} weight="duotone" />}
             title="客户端下载"
-            desc="提供桌面构建压缩包，详情页展示文件大小、系统要求与版本更新记录。"
+            desc="提供桌面安装程序或压缩包，详情页展示文件类型、大小与版本更新记录。"
             points={['Windows / macOS / Linux 分平台发布', '版本号 + 更新日志随包记录', '下载前先看系统要求']}
             shot={games[0].keyart}
             sample="Unity Windows · Unreal Win64 · Godot Windows · 自建安装包"

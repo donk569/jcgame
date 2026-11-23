@@ -147,12 +147,12 @@ export default function Register() {
   const confirmOk = confirm && confirm === password;
 
   return (
-    <div className="wrap flex min-h-[72vh] justify-center py-14">
+    <div className="wrap inner-page auth-page">
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.34, ease: [0.22, 0.68, 0, 1] }}
-        className="w-full max-w-[440px]"
+        className="auth-form"
       >
         <div className="flex items-center justify-between">
           <LogoMark size={34} />
@@ -161,14 +161,13 @@ export default function Register() {
           </span>
         </div>
 
-        <p className="mono mt-6 text-[11px] uppercase tracking-[0.22em] text-muted">加入 JCGame</p>
-        <h1 className="serif-title mt-2 text-[32px] leading-tight">
+        <h1>
           {step === 'code' ? '验证你的邮箱' : '创建账号'}
         </h1>
         <p className="mt-2 text-[13px] leading-relaxed text-muted">
           {step === 'code'
             ? `输入发到 ${email} 的 6 位数字码，验证后即可进入工作室。`
-            : '创建账号，发布你的作品，发现更多有趣的游戏。'}
+            : '注册后即可发布作品、收藏游戏。'}
         </p>
 
         {step === 'code' && (

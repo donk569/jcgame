@@ -3,27 +3,32 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Bookmark,
+  ArrowLeft,
   CaretLeft,
   CaretRight,
-  DownloadSimple,
   Heart,
   Play,
   ShareNetwork,
-  ShieldCheck,
   X,
 } from '@phosphor-icons/react';
-import { GamePost } from '@/components/GameCard';
+import { CatalogTile } from '@/components/GameCard';
 import { PlayModal } from '@/components/PlayModal';
+import { GameComments } from '@/components/GameComments';
+import { GameDownload } from '@/components/GameDownload';
+import { ReportGame } from '@/components/ReportGame';
+import { recordGameActivity } from '@/api/stats';
+import { getGameLaunchUrl } from '@/lib/gameLaunch';
 import { useToast } from '@/components/Toast';
 import { useAppStore } from '@/store/AppStore';
 import { formatBytes, formatCount } from '@/lib/format';
+import { useDocumentMeta } from '@/lib/pageMeta';
 import { useGame, useCreator, useGames } from '@/hooks/useData';
 import NotFound from './NotFound';
 
 export default function GameDetail() {
   const { slug } = useParams();
   const [params, setParams] = useSearchParams();
-  const game = useGame(slug);
+  const { game, isLoading } = useGame(slug);
   const games = useGames();
   const creator = useCreator(game?.studio.handle);
   const toast = useToast();
@@ -31,17 +36,25 @@ export default function GameDetail() {
   const saved = slug ? store.isSaved(slug) : false;
   const liked = slug ? store.isLiked(slug) : false;
 
+  useDocumentMeta({
+    title: game ? `${game.titleCn} — JCGame` : undefined,
+    description: game?.tagline,
+    image: game ? game.keyart ?? game.cover : undefined,
+  });
+
   const [playOpen, setPlayOpen] = useState(false);
   const [shot, setShot] = useState(0);
   const [lightbox, setLightbox] = useState(false);
+  const webLaunchAddress = game?.webBuild?.launchUrl;
+  const launchUrl = useMemo(() => getGameLaunchUrl(webLaunchAddress, window.location.origin), [webLaunchAddress]);
 
   useEffect(() => {
-    if (params.get('play') === '1' && game?.runMode === 'web') {
+    if (params.get('play') === '1' && game?.runMode === 'web' && launchUrl) {
       setPlayOpen(true);
       params.delete('play');
       setParams(params, { replace: true });
     }
-  }, [params, setParams, game]);
+  }, [params, setParams, game, launchUrl]);
 
   const related = useMemo(() => {
     if (!game) return [];
@@ -54,15 +67,16 @@ export default function GameDetail() {
         return score(b) - score(a);
       })
       .slice(0, 4);
-  }, [game]);
+  }, [game, games]);
 
+  if (isLoading) return <p className="wrap inner-page text-muted" role="status">正在加载游戏信息…</p>;
   if (!game) return <NotFound />;
 
   const shots = game.shots?.length ? game.shots : [game.cover];
   const isWeb = game.runMode === 'web';
 
   const share = async () => {
-    const url = `${window.location.origin}/game/${game.slug}`;
+    const url = `${window.location.origin}${window.location.pathname}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.push('链接已复制', 'ok');
@@ -150,102 +164,34 @@ export default function GameDetail() {
   );
 
   return (
-    <div className="pb-10">
-      {/* ---------- 主视觉：有横版主视觉就铺满，只有竖封面就左右并排 ---------- */}
-      <div className="wrap pt-2">
-        {game.keyart ? (
-          <div className="relative overflow-hidden">
-            <img
-              src={game.keyart}
-              alt=""
-              className="h-[340px] w-full object-cover md:h-[440px] lg:h-[500px]"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/55 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-5 p-5 md:p-8">
-              <div className="min-w-0">{meta}</div>
-              <div className="flex items-center gap-2">{actions}</div>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-7 pt-3 md:grid-cols-[238px_1fr] md:gap-10">
-            <img
-              src={game.cover}
-              alt={`${game.titleCn} 封面`}
-              className="w-full max-w-[238px] object-cover"
-            />
-            <div className="flex min-w-0 flex-col justify-center">
-              {meta}
-              <div className="mt-7 flex items-center gap-2">{actions}</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="wrap mt-5 grid-12">
-        {/* ---------- 主列 ---------- */}
-        <div className="col-span-12 lg:col-span-8">
-          {/* 试玩 / 下载：画面本身就是容器，不套彩色框 */}
-          <section>
-            {isWeb ? (
-              <button
-                onClick={() => setPlayOpen(true)}
-                className="group relative block w-full overflow-hidden text-left"
-                aria-label={`试玩 ${game.titleCn}`}
-              >
-                <img
-                  src={shots[0] ?? game.cover}
-                  alt=""
-                  className="aspect-[16/9] w-full object-cover transition-transform duration-[700ms] ease-[cubic-bezier(0.22,0.68,0,1)] group-hover:scale-[1.02]"
-                />
-                {/* 只在中心压一层轻暗，保证按钮可读，不遮画面 */}
-                <div className="absolute inset-0 bg-ink-950/25 transition-colors group-hover:bg-ink-950/15" />
-                <div className="absolute inset-0 grid place-items-center">
-                  <span className="grid h-16 w-16 place-items-center rounded-full border border-bone/40 bg-ink-950/50 backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-bone group-hover:bg-ink-950/70">
-                    <Play size={22} weight="fill" className="ml-[2px] text-bone" />
-                  </span>
-                </div>
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-4">
-                  <div className="flex items-center gap-2 text-[13px] text-bone">
-                    <span className="h-1.5 w-1.5 rounded-full bg-teal" aria-hidden="true" />
-                    点开即玩，无需下载
-                  </div>
-                  <span className="mono text-[11px] text-bone-dim">
-                    {formatBytes(game.webBuild?.bytes ?? 0)}
-                  </span>
-                </div>
+    <article className="wrap inner-page game-page">
+      <Link to="/explore" className="inner-back"><ArrowLeft size={15} aria-hidden="true" />探索游戏</Link>
+      <header className={`game-masthead ${game.keyart ? 'has-keyart' : ''}`}>
+        <div className="game-masthead-art">
+          <img src={game.keyart ?? game.cover} alt={game.keyart ? '' : `${game.titleCn} 封面`} fetchPriority="high" />
+        </div>
+        <div className="game-masthead-copy">
+          {meta}
+          <div className="game-actions">
+            {isWeb && launchUrl && (
+              <button className="btn btn-primary" onClick={() => setPlayOpen(true)}>
+                <Play size={16} weight="fill" /> 网页试玩
               </button>
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-4 border-y border-line py-5">
-                <div className="min-w-0">
-                  <div className="text-[15px] font-semibold">
-                    {game.download?.platform} 客户端
-                  </div>
-                  <p className="mono mt-1.5 text-[11.5px] text-muted">
-                    {game.download && formatBytes(game.download.bytes)} · v{game.version} ·{' '}
-                    {game.download?.arch}
-                  </p>
-                </div>
-                <button
-                  className="btn btn-primary shrink-0"
-                  onClick={() => {
-                    const url = game.download?.file;
-                    if (url && /^https?:/.test(url)) {
-                      window.open(url, '_blank', 'noopener');
-                    } else {
-                      toast.push('这个版本还没挂下载地址');
-                    }
-                  }}
-                >
-                  <DownloadSimple size={15} weight="bold" /> 下载
-                </button>
-              </div>
             )}
-          </section>
+            {actions}
+          </div>
+          {isWeb
+            ? !launchUrl && <p className="mt-3 text-[13px] text-muted">开发者暂未提供可用的网页运行地址。</p>
+            : <GameDownload game={game} onDownload={() => void recordGameActivity(game.slug, 'download')} />}
+        </div>
+      </header>
 
+      <div className="game-body">
+        <div className="min-w-0">
           {/* 画面：主图 + 缩略图切换 */}
-          <section className="mt-6">
+          <section className="game-section">
             <div className="mb-3 flex items-end justify-between">
-              <h2 className="text-[15px] font-semibold">画面</h2>
+              <h2>游戏画面</h2>
               <button
                 onClick={() => setLightbox(true)}
                 className="text-[12.5px] text-muted transition-colors hover:text-brand"
@@ -270,7 +216,7 @@ export default function GameDetail() {
             </div>
             )}
             {shots.length > 1 && (
-              <div className="mt-2 flex gap-2">
+              <div className="game-filmstrip">
                 {shots.map((src, i) => (
                   <button
                     key={src + i}
@@ -294,8 +240,8 @@ export default function GameDetail() {
           </section>
 
           {/* 关于 */}
-          <section className="mt-8">
-            <h2 className="text-[15px] font-semibold">关于这款游戏</h2>
+          <section className="game-section">
+            <h2>关于这款游戏</h2>
             <div className="mt-3 max-w-[66ch] space-y-4 text-[15px] leading-[1.75] text-bone-dim">
               {game.description.map((p) => (
                 <p key={p.slice(0, 12)}>{p}</p>
@@ -304,8 +250,8 @@ export default function GameDetail() {
           </section>
 
           {/* 系统要求 / 运行环境 */}
-          <section className="mt-8">
-            <h2 className="text-[15px] font-semibold">{isWeb ? '运行环境' : '系统要求'}</h2>
+          <section className="game-section">
+            <h2>{isWeb ? '运行环境' : '系统要求'}</h2>
             <dl className="mt-3 overflow-hidden rounded-none border border-line-soft">
               {(isWeb
                 ? [
@@ -332,8 +278,8 @@ export default function GameDetail() {
 
           {/* 更新日志 */}
           {game.changelog && (
-            <section className="mt-8">
-              <h2 className="text-[15px] font-semibold">更新日志</h2>
+            <section className="game-section">
+              <h2>更新日志</h2>
               <ol className="mt-4 space-y-6">
                 {game.changelog.map((c) => (
                   <li key={c.version} className="relative pl-5">
@@ -355,12 +301,13 @@ export default function GameDetail() {
               </ol>
             </section>
           )}
+          <GameComments key={game.slug} gameSlug={game.slug} />
         </div>
 
         {/* ---------- 右栏 ---------- */}
-        <aside className="col-span-12 mt-6 lg:col-span-4 lg:mt-0">
+        <aside className="game-facts" aria-label="作品信息">
           <div className="sticky top-[92px] space-y-3">
-            <div className="rounded-none border border-line-soft bg-ink-800 p-5">
+            <div className="pb-3">
               <div className="flex items-center gap-3">
                 <span
                   className="avatar-sq h-10 w-10 border border-line text-[14px]"
@@ -382,7 +329,7 @@ export default function GameDetail() {
                 </Link>
               </div>
 
-              <dl className="mt-5 space-y-2.5 border-t border-line-soft pt-4">
+              <dl className="game-fact-list">
                 {[
                   ['引擎', game.engine],
                   ['引擎版本', game.engineVersion],
@@ -415,30 +362,30 @@ export default function GameDetail() {
               </div>
             </div>
 
-            <div className="flex items-start gap-2 px-1 text-[11.5px] leading-relaxed text-muted-dim">
-              <ShieldCheck size={13} className="mt-0.5 shrink-0" />
-              网页版在独立域与沙箱 iframe 中运行，不共享 JCGame 的登录态与本地存储。
-            </div>
+            <ReportGame key={game.slug} slug={game.slug} />
           </div>
         </aside>
       </div>
 
       {/* ---------- 相似 ---------- */}
-      <section className="wrap mt-14">
+      <section className="mt-14 border-t border-line pt-7">
         <div className="section-head">
           <h2 className="display-h2">相似的游戏</h2>
           <Link to="/explore" className="text-[13.5px] text-bone-dim hover:text-brand">
             更多
           </Link>
         </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="catalog-grid">
           {related.map((g) => (
-            <GamePost key={g.slug} game={g} ratio="portrait" />
+            <CatalogTile key={g.slug} game={g} />
           ))}
         </div>
       </section>
 
-      {isWeb && <PlayModal game={game} open={playOpen} onClose={() => setPlayOpen(false)} />}
+      {isWeb && launchUrl && playOpen && (
+        <PlayModal game={game} url={launchUrl} onClose={() => setPlayOpen(false)}
+          onLaunch={() => void recordGameActivity(game.slug, 'play')} />
+      )}
 
       {/* ---------- 灯箱 ---------- */}
       <AnimatePresence>
@@ -478,6 +425,6 @@ export default function GameDetail() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </article>
   );
 }

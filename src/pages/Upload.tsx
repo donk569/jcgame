@@ -14,11 +14,16 @@ import {
 import { useToast } from '@/components/Toast';
 import { useSearchParams } from 'react-router-dom';
 import { useAppStore } from '@/store/AppStore';
-import type { DraftForm } from '@/api/types';
+import { insertGame, uploadFile } from '@/api/backend';
+import { uploadDesktopBuild } from '@/api/distribution';
+import { HAS_BACKEND } from '@/api/supabase';
+import { getGameLaunchUrl } from '@/lib/gameLaunch';
+import type { DraftForm, DownloadBuild, Game } from '@/api/types';
 import { getCategories, getEngines, getEngineBuildGuide, getCurrentUser } from '@/api';
 import { formatBytes } from '@/lib/format';
 
-type Picked = { name: string; size: number; url?: string };
+type Picked = { name: string; size: number; url?: string; file?: File };
+const desktopPlatforms = ['Windows', 'macOS', 'Linux'] as const;
 
 const engineOptions = [...getEngines().map((e) => e.name), 'GameMaker', 'RPG Maker', '其它引擎'];
 const steps = ['基本信息', '媒体', '运行与技术', '检查并发布'];
@@ -36,7 +41,7 @@ const initial = {
   runMode: 'web' as 'web' | 'download',
   engine: '',
   engineOther: '',
-  entry: 'index.html',
+  launchUrl: '',
   build: null as Picked | null,
   platforms: ['Windows'] as string[],
   version: '0.1.0',
@@ -67,6 +72,7 @@ export default function Upload() {
       cover: f.coverName ? ({ name: f.coverName, size: 0, url: undefined } as Picked) : null,
       shots: f.shotNames.map((name) => ({ name, size: 0, url: undefined }) as Picked),
       runMode: f.runMode,
+      launchUrl: f.launchUrl ?? '',
       engine: f.engine,
       engineOther: f.engineOther,
       version: f.version,
@@ -76,6 +82,11 @@ export default function Upload() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tagInput, setTagInput] = useState('');
   const [published, setPublished] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionInProgress = useRef(false);
+  const submissionId = useRef<string>();
+  const uploadedImages = useRef(new WeakMap<File, string>());
+  const uploadedPackages = useRef(new WeakMap<File, string>());
   const [dir, setDir] = useState(1);
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
@@ -94,19 +105,24 @@ export default function Upload() {
       else if (form.tagline.length > 90) e.tagline = '简介控制在 90 字以内';
       if (form.cats.length === 0) e.cats = '至少选一个分类';
     }
-    if (target >= 2 && !form.cover) e.cover = '封面是玩家第一眼看到的东西，必须上传';
+    if (target >= 2 && !form.cover?.file) e.cover = '封面是玩家第一眼看到的东西，必须上传';
     if (target >= 3) {
       if (!effectiveEngine) e.engine = '选择或填写你用的引擎';
-      if (!form.build) e.build = form.runMode === 'web' ? '请上传构建产物压缩包' : '请上传安装包';
+      if (form.runMode === 'web') {
+        if (!getGameLaunchUrl(form.launchUrl.trim(), window.location.origin)) e.launchUrl = '填写可嵌入的独立 HTTPS 运行地址';
+      } else {
+        if (!form.build?.file) e.build = '请选择安装包或压缩包';
+        else if (!/\.(zip|7z|exe|msi|dmg|tar\.gz)$/i.test(form.build.name)) e.build = '不支持这个文件格式';
+        if (form.platforms.length !== 1) e.platforms = '每个安装包需要对应一个平台';
+      }
       if (!form.version.trim()) e.version = '填一个版本号，例如 1.0.0';
-      if (form.runMode === 'web' && !form.entry.trim()) e.entry = '网页版需要指定入口文件';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const go = (target: number) => {
-    if (target > step && !validate(step + 1)) return;
+    if (target > step && !validate(target)) return;
     setDir(target > step ? 1 : -1);
     setStep(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -119,6 +135,98 @@ export default function Upload() {
     setTagInput('');
   };
 
+  async function publish() {
+    if (submissionInProgress.current || !validate(3)) return;
+    const ownerId = store.backendUserId;
+    if (HAS_BACKEND && !ownerId) {
+      toast.push('登录会话已失效，请重新登录');
+      return;
+    }
+
+    submissionInProgress.current = true;
+    setSubmitting(true);
+    try {
+      const date = new Date().toISOString().slice(0, 10);
+      const titleSlug = (form.titleEn || form.title).trim().toLowerCase().replace(/[^a-z0-9一-龥]+/g, '-');
+      submissionId.current ??= `${titleSlug || 'game'}-${crypto.randomUUID()}`;
+      const slug = submissionId.current;
+      const launchUrl = form.runMode === 'web' ? getGameLaunchUrl(form.launchUrl.trim(), window.location.origin) : null;
+      const packageFile = form.runMode === 'download' ? form.build?.file : undefined;
+      const uploadImage = async (picked: Picked | null) => {
+        if (!picked?.file) return;
+        if (ownerId) {
+          const existing = uploadedImages.current.get(picked.file);
+          if (existing) return existing;
+          const { url } = await uploadFile(picked.file);
+          uploadedImages.current.set(picked.file, url);
+          return url;
+        }
+        const file = picked.file;
+        const data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('无法读取图片'));
+          reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('无法读取图片'));
+          reader.readAsDataURL(file);
+        });
+        return data;
+      };
+
+      const cover = await uploadImage(form.cover);
+      if (!cover) throw new Error('请重新选择封面');
+      const shots = (await Promise.all(form.shots.map(uploadImage))).filter((url): url is string => Boolean(url));
+      let download: DownloadBuild | undefined;
+      if (packageFile && ownerId) {
+        const storagePath = uploadedPackages.current.get(packageFile) ?? await uploadDesktopBuild(ownerId, packageFile);
+        uploadedPackages.current.set(packageFile, storagePath);
+        download = {
+          platform: form.platforms[0] as DownloadBuild['platform'],
+          arch: '',
+          bytes: packageFile.size,
+          file: '',
+          fileName: packageFile.name,
+          storagePath,
+          requirements: [],
+        };
+      }
+      const game: Game = {
+        slug,
+        title: form.titleEn || form.title,
+        titleCn: form.title,
+        tagline: form.tagline,
+        description: [form.tagline],
+        studio: { name: store.profile?.name || store.user?.name || form.developer, handle: store.user?.handle || getCurrentUser().handle },
+        engine: effectiveEngine,
+        engineVersion: form.version,
+        categories: form.cats,
+        tags: form.tags,
+        runMode: form.runMode,
+        platforms: form.runMode === 'download' ? form.platforms : ['Web'],
+        version: form.version,
+        updatedAt: date,
+        releasedAt: date,
+        plays: 0,
+        likes: 0,
+        price: 'free',
+        cover,
+        keyart: shots[0],
+        shots,
+        webBuild: launchUrl ? { entry: launchUrl.pathname, host: launchUrl.host, bytes: 0, engineVersion: form.version, launchUrl: launchUrl.href } : undefined,
+        download,
+        changelog: form.changelog ? [{ version: form.version, date, notes: [form.changelog] }] : [],
+      };
+      if (ownerId) await insertGame(game, ownerId);
+      else store.addPublished(game);
+      if (draftId) store.removeDraft(draftId);
+      setPublished(true);
+      window.scrollTo({ top: 0 });
+    } catch (error) {
+      toast.push(error instanceof Error ? error.message : '提交失败。请确认网络和文件大小后重试。');
+    } finally {
+      submissionInProgress.current = false;
+      setSubmitting(false);
+    }
+  }
+
   const checklist = useMemo(
     () => [
       { label: '游戏名称与简介', done: Boolean(form.title && form.tagline) },
@@ -126,7 +234,7 @@ export default function Upload() {
       { label: '封面', done: Boolean(form.cover) },
       { label: '至少一张截图', done: form.shots.length > 0 },
       { label: '引擎信息', done: Boolean(effectiveEngine) },
-      { label: '构建产物', done: Boolean(form.build) },
+      { label: '运行地址或安装包', done: form.runMode === 'web' ? Boolean(form.launchUrl.trim()) : Boolean(form.build?.file) },
       { label: '版本与更新说明', done: Boolean(form.version && form.changelog.trim()) },
     ],
     [form, effectiveEngine],
@@ -146,7 +254,7 @@ export default function Upload() {
         </motion.span>
         <h1 className="mt-6 text-[26px] font-bold tracking-[-0.03em]">已经提交发布</h1>
         <p className="mt-2 max-w-[42ch] text-[13.5px] leading-relaxed text-muted">
-          《{form.title}》已进入队列。网页版会在构建校验通过后自动分配运行域名，通常几分钟内就能玩到。
+          《{form.title}》{HAS_BACKEND ? '已提交审核，通过后公开展示。' : '已保存到本地演示数据。'}
         </p>
         <div className="mt-7 flex gap-2">
           <Link to="/me" className="btn btn-primary btn-sm">
@@ -156,6 +264,7 @@ export default function Upload() {
             className="btn btn-ghost btn-sm"
             onClick={() => {
               setPublished(false);
+              submissionId.current = undefined;
               setForm(initial);
               setStep(0);
             }}
@@ -168,22 +277,22 @@ export default function Upload() {
   }
 
   return (
-    <div className="wrap py-6 md:py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="wrap inner-page upload-page">
+      <div className="inner-heading">
         <div>
-          <h1 className="text-[clamp(1.9rem,3.2vw,2.6rem)] font-extrabold tracking-[-0.035em]">
+          <h1>
             发布游戏
           </h1>
           <p className="mt-2 max-w-[54ch] text-[13.5px] leading-relaxed text-muted">
-            不限制引擎，也不要求统一构建格式。你只需要说清这是什么游戏、用什么跑起来。
+            填写作品资料并提供网页运行地址或客户端安装包。
           </p>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_300px]">
+      <div className="upload-layout">
         <div>
           {/* 步骤 */}
-          <div className="relative mb-6 flex flex-wrap items-center gap-6 border-b border-line-soft pb-0">
+          <div className="relative mb-7 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-line">
             {steps.map((s, i) => {
               const active = i === step;
               const done = i < step;
@@ -387,6 +496,7 @@ export default function Upload() {
                                   name: f.name,
                                   size: f.size,
                                   url: URL.createObjectURL(f),
+                                  file: f,
                                 }));
                                 set('shots', [...form.shots, ...picked]);
                               }}
@@ -504,58 +614,30 @@ export default function Upload() {
                     )}
 
                     {form.runMode === 'web' ? (
-                      <>
-                        <Field
-                          label="构建产物"
-                          required
-                          error={errors.build}
-                          hint="打包成 .zip 上传，保留目录结构。解压后要能直接通过入口文件打开。"
-                        >
-                          <DropZone
-                            accept=".zip,.7z,.tar,.gz"
-                            label="拖入 zip，或点击选择"
-                            icon={<FileArchive size={22} weight="duotone" />}
-                            value={form.build}
-                            onChange={(f) => set('build', f)}
-                            onClear={() => set('build', null)}
-                          />
-                        </Field>
-                        <Field
-                          label="入口文件"
-                          required
-                          error={errors.entry}
-                          hint="相对压缩包根目录的路径，多数引擎是 index.html"
-                        >
-                          <input
-                            className="input mono"
-                            value={form.entry}
-                            onChange={(e) => set('entry', e.target.value)}
-                            aria-invalid={Boolean(errors.entry)}
-                          />
-                        </Field>
-                        <div className="rounded-none border border-teal/25 bg-teal/6 px-3.5 py-3 text-[12.5px] leading-relaxed text-bone-dim/85">
-                          网页版会分配独立域（例如{' '}
-                          <span className="mono text-teal">your-game.jcgame.run</span>
-                          ），在沙箱 iframe 里运行。游戏拿不到主站登录态、Cookie 和本地存储。
-                        </div>
-                      </>
+                      <Field label="网页运行地址" required error={errors.launchUrl}
+                        hint="填写游戏入口的完整 HTTPS 地址。运行站点需允许嵌入，发布前请确认游戏能在 iframe 中打开。"
+                        htmlFor="game-launch-url">
+                        <input
+                          id="game-launch-url"
+                          className="input"
+                          type="url"
+                          value={form.launchUrl}
+                          onChange={(event) => set('launchUrl', event.target.value)}
+                          aria-invalid={Boolean(errors.launchUrl)}
+                          placeholder="https://games.example.com/my-game/index.html"
+                        />
+                      </Field>
                     ) : (
                       <>
-                        <Field label="支持平台" required>
+                        <Field label="支持平台" required error={errors.platforms}>
                           <div className="flex flex-wrap gap-1.5">
-                            {['Windows', 'macOS', 'Linux'].map((p) => (
+                            {desktopPlatforms.map((p) => (
                               <button
                                 key={p}
                                 className="text-[12.5px]"
                                 data-active={form.platforms.includes(p)}
-                                onClick={() =>
-                                  set(
-                                    'platforms',
-                                    form.platforms.includes(p)
-                                      ? form.platforms.filter((x) => x !== p)
-                                      : [...form.platforms, p],
-                                  )
-                                }
+                                onClick={() => set('platforms', [p])}
+                                aria-pressed={form.platforms.includes(p)}
                               >
                                 {p}
                               </button>
@@ -566,10 +648,10 @@ export default function Upload() {
                           label="安装包"
                           required
                           error={errors.build}
-                          hint="每个平台一个包。当前演示只接收一个，正式环境按平台分别上传。"
+                          hint="Windows 可上传安装程序（EXE / MSI），也可上传 ZIP。桌面快捷方式由安装程序创建。"
                         >
                           <DropZone
-                            accept=".zip,.7z,.exe,.dmg,.tar.gz"
+                            accept=".zip,.7z,.exe,.msi,.dmg,.tar.gz"
                             label="拖入安装包，或点击选择"
                             icon={<FileArchive size={22} weight="duotone" />}
                             value={form.build}
@@ -629,7 +711,7 @@ export default function Upload() {
                         ['开发者', form.developer || '—'],
                         ['版本', form.version || '—'],
                         ['构建产物', form.build ? `${form.build.name}（${formatBytes(form.build.size)}）` : '未上传'],
-                        ['入口文件', form.runMode === 'web' ? form.entry || '—' : '不适用'],
+                        ['网页运行地址', form.runMode === 'web' ? form.launchUrl || '—' : '不适用'],
                         ['支持平台', form.runMode === 'web' ? 'Web' : form.platforms.join(' / ') || '—'],
                         ['截图', `${form.shots.length} 张`],
                       ].map(([k, v]) => (
@@ -680,6 +762,7 @@ export default function Upload() {
                   coverName: form.cover?.name ?? '',
                   shotNames: form.shots.map((x) => x.name),
                   runMode: form.runMode,
+                  launchUrl: form.launchUrl,
                   engine: form.engine,
                   engineOther: form.engineOther,
                   version: form.version,
@@ -706,42 +789,10 @@ export default function Upload() {
               ) : (
                 <button
                   className="btn btn-primary btn-sm"
-                  disabled={doneCount < 4}
-                  onClick={() => {
-                    if (!validate(3)) return;
-                    const slug = (form.titleEn || form.title).trim().toLowerCase().replace(/[^a-z0-9一-龥]+/g, '-') || `game-${Date.now()}`;
-                    const now = new Date().toISOString().slice(0, 10);
-                    store.addPublished({
-                      slug,
-                      title: form.titleEn || form.title,
-                      titleCn: form.title,
-                      tagline: form.tagline,
-                      description: form.tagline ? [form.tagline] : [],
-                      studio: { name: store.profile?.name || getCurrentUser().name, handle: getCurrentUser().handle },
-                      engine: effectiveEngine,
-                      engineVersion: form.version,
-                      categories: form.cats,
-                      tags: form.tags,
-                      runMode: form.runMode,
-                      platforms: form.runMode === 'download' ? form.platforms : [],
-                      version: form.version,
-                      updatedAt: now,
-                      releasedAt: now,
-                      plays: 0,
-                      likes: 0,
-                      price: 'free',
-                      cover: form.cover?.url || '/art/covers/pixel-ronin.webp',
-                      keyart: form.shots[0]?.url,
-                      shots: form.shots.map((x) => x.url).filter(Boolean) as string[],
-                      changelog: form.changelog ? [{ version: form.version, date: now, notes: [form.changelog] }] : [],
-                      featured: false,
-                    });
-                    if (draftId) store.removeDraft(draftId);
-                    setPublished(true);
-                    window.scrollTo({ top: 0 });
-                  }}
+                  disabled={submitting}
+                  onClick={() => void publish()}
                 >
-                  发布游戏
+                  {submitting ? '正在提交…' : HAS_BACKEND ? '提交审核' : '保存演示作品'}
                 </button>
               )}
             </div>
@@ -889,7 +940,7 @@ function DropZone({
   const take = (files: FileList | null) => {
     const f = files?.[0];
     if (!f) return;
-    onChange({ name: f.name, size: f.size, url: URL.createObjectURL(f) });
+    onChange({ name: f.name, size: f.size, url: URL.createObjectURL(f), file: f });
   };
 
   if (value) {

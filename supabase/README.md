@@ -93,3 +93,18 @@ VITE_DATA_SOURCE=remote
 | 登录提示 `Invalid login credentials` | 邮箱密码不对，或开了邮箱验证 | 检查 Confirmation email 设置 |
 | `fetch failed` / 连不上 | 网络被干扰 | 开代理；或把 `VITE_DATA_SOURCE` 改回 `mock` |
 | 登录后还是演示账号输入框 | `.env.local` 没生效 | 确认文件在项目根目录，且 dev server 已重启 |
+
+
+## 发布审核、试玩与找回密码
+
+已有生产库先执行增量 SQL，按 [moderation.sql](moderation.sql)、[comments.sql](comments.sql)、[search.sql](search.sql)、[game-stats.sql](game-stats.sql) 顺序执行。不要重灌样例数据。旧作品保持可见，新作品由数据库强制设为待审核。角色使用 Supabase Auth 的服务端 `app_metadata.jcgame_moderator: true`，给指定授权用户设置后，让该用户重新登录更新令牌。审核入口在工作台和 `/moderation`。
+
+在 Supabase Auth 的重定向白名单加入 `https://donk569.github.io/jcgame/reset-password`，测试域名则填写对应的完整路径。重置邮件使用 Supabase 的确认链接模板（`{{ .ConfirmationURL }}`）。用户在发起重置的同一浏览器打开邮件链接，完成 PKCE 验证与新密码设置。
+
+网页作品提交独立 HTTPS 入口。运行站点必须允许 JCGame 使用 iframe 嵌入。当前运行容器不授予同源访问，需按实际 Unity WebGL 构建检查资源请求的跨域响应和 WebAssembly 载入，尤其是分离的 JS、WASM 与 data 文件。旧记录中的示例 host 不作为可运行地址。平台自动解压并托管 ZIP 属于后续阶段。
+
+客户端每次提交上传一份对应平台的安装程序或压缩包。安装包进入私有 `game-builds` 桶，审核通过后玩家通过限时下载链接获取。Windows 开发者若需创建桌面快捷方式，应把完整 Unity 构建打成 EXE 或 MSI 安装程序，并在 Windows 安装测试中验证快捷方式打开的是游戏主程序。ZIP 保留原样分发。安装程序与签名由开发者提供。
+
+部署工作台通知前，在上述增量 SQL 之后执行 [notifications.sql](notifications.sql)。通知从迁移后产生，覆盖作品审核结果、玩家留言和开发者首次回复。登录用户只能读取自己的通知及更新其已读状态。
+
+上线验收建议用测试账号分别走提交、审前不可见、过审、可玩或下载、举报和撤下。统计记录迁移后产生的活动，历史累计值与新近趋势使用各自的数据来源。

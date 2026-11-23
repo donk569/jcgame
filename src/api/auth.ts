@@ -138,6 +138,40 @@ export async function exchangeOAuthCode(code: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  if (!supabase) throw new Error('当前环境不支持发送重置邮件');
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}${base}/reset-password`,
+  });
+  if (error) throw error;
+}
+
+export async function exchangePasswordRecoveryCode(code: string): Promise<string> {
+  if (!supabase) throw new Error('当前环境不支持密码重置');
+  let recoveryUserId: string | undefined;
+  const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') recoveryUserId = session?.user.id;
+  });
+  try {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error || !recoveryUserId || data.user?.id !== recoveryUserId) {
+      throw new Error('重置链接无效或已过期。请在发起请求的同一浏览器打开邮件链接，或重新发送。');
+    }
+    return recoveryUserId;
+  } finally {
+    listener.subscription.unsubscribe();
+  }
+}
+
+export async function updateRecoveredPassword(userId: string, password: string): Promise<void> {
+  if (!supabase) throw new Error('当前环境不支持密码重置');
+  const { data, error: sessionError } = await supabase.auth.getUser();
+  if (sessionError || data.user?.id !== userId) throw new Error('重置会话已失效，请重新发送邮件');
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+}
+
 export async function signOut(): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.auth.signOut();
