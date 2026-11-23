@@ -53,6 +53,7 @@ export function friendlyAuthError(err: unknown): string {
   if (m.includes('invalid login credentials')) return '邮箱或密码不对，再试一次';
   if (m.includes('email not confirmed')) return '邮箱还没验证，请查收验证邮件或输入验证码';
   if (m.includes('user already registered')) return '这个邮箱已经注册过了，直接去登录吧';
+  if (m.includes('email address already') || m.includes('already been registered') || m.includes('new email address') && m.includes('same')) return '新邮箱已经被占用，换一个试试';
   if (m.includes('password should be at least')) return '密码太短了，至少要 8 位';
   if (m.includes('unable to validate email')) return '邮箱格式不太对，检查一下';
   if (m.includes('rate limit') || m.includes('too many')) return '尝试太多次了，稍等几分钟再来';
@@ -164,12 +165,52 @@ export async function exchangePasswordRecoveryCode(code: string): Promise<string
   }
 }
 
+/**
+ * 兼容 Supabase 邮件模板的 implicit flow：
+ * 邮件链接跳回来时 token 在 URL hash（#access_token=...&type=recovery），
+ * 而客户端 detectSessionInUrl 为 false（避免与 OAuth PKCE 手动 exchange 冲突），
+ * 所以这里手动把 hash 里的 token 装进会话。
+ * 返回建立会话的用户 id；没有 recovery hash 时返回 null。
+ */
+export async function recoverFromHash(): Promise<string | null> {
+  if (!supabase || !window.location.hash.includes('type=recovery')) return null;
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  if (!accessToken || !refreshToken) return null;
+
+  const { data, error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  if (error || !data.user) throw new Error('重置链接无效或已过期，请重新发送邮件');
+  // token 用完就从地址栏抹掉，避免泄露
+  window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  return data.user.id;
+}
+
 export async function updateRecoveredPassword(userId: string, password: string): Promise<void> {
   if (!supabase) throw new Error('当前环境不支持密码重置');
   const { data, error: sessionError } = await supabase.auth.getUser();
   if (sessionError || data.user?.id !== userId) throw new Error('重置会话已失效，请重新发送邮件');
   const { error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
+}
+
+/**
+ * 换绑邮箱：Supabase 会向新邮箱发确认链接。
+ * 若后台开启 secure email change（默认开启），旧邮箱也会收到一条确认链接，
+ * 两边都点过才会真正生效——前端只负责引导，不能跳过这一步。
+ */
+export async function changeEmail(newEmail: string): Promise<void> {
+  if (!supabase) throw new Error('当前环境不支持修改邮箱');
+  const email = newEmail.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 254) {
+    throw new Error('邮箱格式不太对，检查一下');
+  }
+  const { data, error } = await supabase.auth.updateUser({ email });
+  if (error) throw error;
+  if (!data.user) throw new Error('提交失败，请重试');
 }
 
 export async function signOut(): Promise<void> {

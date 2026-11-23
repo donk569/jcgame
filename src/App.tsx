@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { SiteHeader } from './components/SiteHeader';
 import { SiteFooter } from './components/SiteFooter';
@@ -23,6 +23,21 @@ function ScrollToTop() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [pathname]);
+  return null;
+}
+
+/**
+ * Supabase 密码重置邮件默认跳到 Site URL（站点根），且 token 在 hash 里。
+ * 不管用户落在哪个页面，都把 recovery hash 送到 /reset-password 去处理。
+ */
+function RecoveryRedirect() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (window.location.hash.includes('type=recovery') && pathname !== '/reset-password') {
+      navigate('/reset-password' + window.location.hash, { replace: true });
+    }
+  }, [navigate, pathname]);
   return null;
 }
 
@@ -83,6 +98,7 @@ export default function App() {
         跳到主要内容
       </a>
       <ScrollToTop />
+      <RecoveryRedirect />
       <SiteHeader />
       <PageFrame />
       <SiteFooter />

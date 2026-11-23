@@ -9,6 +9,7 @@ import type { Game } from '@/api/types';
 import { fetchApprovedWorks, fetchCreatorStats, type ActivityDay, type CreatorStats } from '@/api/stats';
 import { useCanModerate } from '@/api/moderation';
 import { setMyGameState } from '@/api/manage';
+import { changeEmail, friendlyAuthError } from '@/api/auth';
 import { supabase } from '@/api/supabase';
 import { MySubmissions } from '@/components/MySubmissions';
 import { NotificationInbox } from '@/components/NotificationInbox';
@@ -110,6 +111,9 @@ export default function Dashboard() {
   const [profile, setProfile] = useState(() =>
     store.profile ?? { name: currentUser.name, bio: currentUser.bio, site: 'https://example.com' },
   );
+  const [newEmail, setNewEmail] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailNotice, setEmailNotice] = useState('');
   const mine = backendUserId
     ? approvedWorks ?? []
     : games.filter((game) => game.studio.handle === currentUser.handle);
@@ -497,9 +501,51 @@ export default function Dashboard() {
             <div className="mt-5 space-y-6">
               <div>
                 <label className="field-label" htmlFor="s-email">
-                  邮箱
+                  当前邮箱
                 </label>
                 <input id="s-email" className="input" type="email" value={currentUser.email} readOnly />
+                {backendUserId ? (
+                  <div className="mt-3">
+                    <label className="field-label" htmlFor="s-new-email">
+                      换绑到新邮箱
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        id="s-new-email"
+                        className="input min-w-0 flex-1"
+                        type="email"
+                        placeholder="new@example.com"
+                        value={newEmail}
+                        onChange={(e) => { setNewEmail(e.target.value); setEmailNotice(''); }}
+                        disabled={emailBusy}
+                      />
+                      <button
+                        className="btn btn-ghost btn-sm shrink-0"
+                        disabled={emailBusy || !newEmail.trim() || newEmail.trim().toLowerCase() === currentUser.email.toLowerCase()}
+                        onClick={() => {
+                          setEmailBusy(true);
+                          setEmailNotice('');
+                          void changeEmail(newEmail).then(
+                            () => {
+                              setEmailNotice('确认邮件已发送。请到新邮箱点确认链接；如果开启了双重确认，旧邮箱也会收到一封，两边都点过才会生效。');
+                              setNewEmail('');
+                              toast.push('换绑邮件已发送', 'ok');
+                            },
+                            (err) => toast.push(friendlyAuthError(err)),
+                          ).finally(() => setEmailBusy(false));
+                        }}
+                      >
+                        {emailBusy ? '发送中…' : '发送确认'}
+                      </button>
+                    </div>
+                    <p className="field-hint mt-1">
+                      需要到新邮箱点确认链接才会生效；期间仍用原邮箱登录。
+                    </p>
+                    {emailNotice && <p className="mt-2 text-[12.5px] text-teal" role="status">{emailNotice}</p>}
+                  </div>
+                ) : (
+                  <p className="field-hint mt-1">当前为本地演示模式，换绑邮箱需连接后端。</p>
+                )}
               </div>
 
               <div>

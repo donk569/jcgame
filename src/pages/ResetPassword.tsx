@@ -6,6 +6,7 @@ import {
   exchangePasswordRecoveryCode,
   friendlyAuthError,
   passwordError,
+  recoverFromHash,
   requestPasswordReset,
   updateRecoveredPassword,
 } from '@/api/auth';
@@ -26,13 +27,27 @@ export default function ResetPassword() {
   const [updated, setUpdated] = useState(false);
 
   useEffect(() => {
-    if (!code || started.current) return;
+    if (started.current) return;
     started.current = true;
-    setParams({}, { replace: true });
-    void exchangePasswordRecoveryCode(code)
-      .then(setRecoveryUserId)
-      .catch((err) => setError(friendlyAuthError(err)))
-      .finally(() => setValidating(false));
+    void (async () => {
+      try {
+        if (code) {
+          // PKCE flow：?code= 换 session
+          const userId = await exchangePasswordRecoveryCode(code);
+          setParams({}, { replace: true });
+          setRecoveryUserId(userId);
+        } else if (window.location.hash.includes('type=recovery')) {
+          // implicit flow：token 在 hash 里（Supabase 邮件模板默认行为）
+          const userId = await recoverFromHash();
+          if (userId) setRecoveryUserId(userId);
+          else setError('重置链接不完整，请重新发送邮件。');
+        }
+      } catch (err) {
+        setError(friendlyAuthError(err));
+      } finally {
+        setValidating(false);
+      }
+    })();
   }, [code, setParams]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
