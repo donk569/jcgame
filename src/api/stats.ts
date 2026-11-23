@@ -49,20 +49,21 @@ export async function fetchCreatorStats(signal: AbortSignal): Promise<CreatorSta
   return data as CreatorStats;
 }
 
-export async function fetchApprovedWorks(owner: string, signal: AbortSignal) {
+export async function fetchApprovedWorks(owner: string, signal?: AbortSignal) {
   if (!supabase) return [];
   const client = supabase;
   const games = [];
   const batchSize = 100;
   for (let offset = 0; ; offset += batchSize) {
-    const { data, error } = await client.from('games')
+    let query = client.from('games')
       .select('*')
       .eq('owner', owner)
       .eq('review_state', 'approved')
       .order('released_at', { ascending: false })
       .order('slug')
-      .range(offset, offset + batchSize - 1)
-      .abortSignal(signal);
+      .range(offset, offset + batchSize - 1);
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query;
     if (error) throw error;
     games.push(...(data as DbGame[]).map(rowToGame));
     if (data.length < batchSize) return games;

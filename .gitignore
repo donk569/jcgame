@@ -11,6 +11,7 @@ site/
 .workbuddy/
 *.tsbuildinfo
 *.bak
+*.bak2
 
 # Supabase CLI 本地临时文件（含项目/组织标识）
 supabase/.temp/

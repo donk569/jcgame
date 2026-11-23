@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -16,6 +16,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAppStore } from '@/store/AppStore';
 import { insertGame, uploadFile } from '@/api/backend';
 import { uploadDesktopBuild } from '@/api/distribution';
+import { fetchMyGames, toStoredAsset, updateMyGame } from '@/api/manage';
 import { HAS_BACKEND } from '@/api/supabase';
 import { getGameLaunchUrl } from '@/lib/gameLaunch';
 import type { DraftForm, DownloadBuild, Game } from '@/api/types';
@@ -55,7 +56,11 @@ export default function Upload() {
   const store = useAppStore();
   const [params] = useSearchParams();
   const draftId = params.get('draft');
+  const editSlug = params.get('edit');
   const restored = draftId ? store.drafts.find((d) => d.id === draftId) : undefined;
+  const [editGame, setEditGame] = useState<Game | null>(null);
+  const [editLoading, setEditLoading] = useState(Boolean(editSlug));
+  const [editError, setEditError] = useState('');
 
   const [step, setStep] = useState(restored ? Math.min(Math.round((restored.progress / 100) * 3), 3) : 0);
   const [form, setForm] = useState(() => {
@@ -79,6 +84,54 @@ export default function Upload() {
       changelog: f.changelog,
     };
   });
+  useEffect(() => {
+    if (!editSlug) return;
+    let active = true;
+    void fetchMyGames().then(
+      (games) => {
+        const game = games.find((g) => g.slug === editSlug);
+        if (!active) return;
+        if (!game) {
+          setEditError('没找到这个作品，或你没有编辑权限。');
+          setEditLoading(false);
+          return;
+        }
+        submissionId.current = game.slug;
+        setEditGame(game);
+        const known = engineOptions.includes(game.engine);
+        setForm({
+          title: game.titleCn,
+          titleEn: game.title === game.titleCn ? '' : game.title,
+          tagline: game.tagline,
+          developer: game.studio.name || getCurrentUser().name,
+          cats: game.categories,
+          tags: game.tags,
+          cover: game.cover ? { name: '封面', size: 0, url: game.cover } : null,
+          shots: (game.shots ?? []).map((url, i) => ({ name: `截图 ${i + 1}`, size: 0, url })),
+          video: '',
+          runMode: game.runMode,
+          engine: known ? game.engine : '其它引擎',
+          engineOther: known ? '' : game.engine,
+          launchUrl: game.webBuild?.launchUrl ?? '',
+          build: game.download?.storagePath
+            ? { name: game.download.fileName || '已上传安装包', size: game.download.bytes, url: game.download.storagePath }
+            : null,
+          platforms: game.runMode === 'download' ? (game.platforms.length ? game.platforms : ['Windows']) : ['Windows'],
+          version: game.version,
+          changelog: '',
+        });
+        setStep(0);
+        setEditLoading(false);
+      },
+      () => {
+        if (!active) return;
+        setEditError('读取作品失败，请回工作台重试。');
+        setEditLoading(false);
+      },
+    );
+    return () => { active = false; };
+  }, [editSlug]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tagInput, setTagInput] = useState('');
   const [published, setPublished] = useState(false);
@@ -105,14 +158,14 @@ export default function Upload() {
       else if (form.tagline.length > 90) e.tagline = '简介控制在 90 字以内';
       if (form.cats.length === 0) e.cats = '至少选一个分类';
     }
-    if (target >= 2 && !form.cover?.file) e.cover = '封面是玩家第一眼看到的东西，必须上传';
+    if (target >= 2 && !form.cover?.file && !form.cover?.url) e.cover = '封面是玩家第一眼看到的东西，必须上传';
     if (target >= 3) {
       if (!effectiveEngine) e.engine = '选择或填写你用的引擎';
       if (form.runMode === 'web') {
         if (!getGameLaunchUrl(form.launchUrl.trim(), window.location.origin)) e.launchUrl = '填写可嵌入的独立 HTTPS 运行地址';
       } else {
-        if (!form.build?.file) e.build = '请选择安装包或压缩包';
-        else if (!/\.(zip|7z|exe|msi|dmg|tar\.gz)$/i.test(form.build.name)) e.build = '不支持这个文件格式';
+        if (!form.build?.file && !form.build?.url) e.build = '请选择安装包或压缩包';
+        else if (form.build.file && !/\.(zip|7z|exe|msi|dmg|tar\.gz)$/i.test(form.build.name)) e.build = '不支持这个文件格式';
         if (form.platforms.length !== 1) e.platforms = '每个安装包需要对应一个平台';
       }
       if (!form.version.trim()) e.version = '填一个版本号，例如 1.0.0';
@@ -150,10 +203,12 @@ export default function Upload() {
       const titleSlug = (form.titleEn || form.title).trim().toLowerCase().replace(/[^a-z0-9一-龥]+/g, '-');
       submissionId.current ??= `${titleSlug || 'game'}-${crypto.randomUUID()}`;
       const slug = submissionId.current;
+      const isEdit = Boolean(editGame);
       const launchUrl = form.runMode === 'web' ? getGameLaunchUrl(form.launchUrl.trim(), window.location.origin) : null;
       const packageFile = form.runMode === 'download' ? form.build?.file : undefined;
       const uploadImage = async (picked: Picked | null) => {
-        if (!picked?.file) return;
+        if (!picked) return;
+        if (!picked.file) return picked.url; // 编辑模式：沿用已有图片，不重复上传
         if (ownerId) {
           const existing = uploadedImages.current.get(picked.file);
           if (existing) return existing;
@@ -187,6 +242,9 @@ export default function Upload() {
           storagePath,
           requirements: [],
         };
+      } else if (isEdit && editGame?.download) {
+        // 编辑但未换安装包：沿用原包（file 允许为空，storagePath 已在库里）
+        download = editGame.download;
       }
       const game: Game = {
         slug,
@@ -203,18 +261,44 @@ export default function Upload() {
         platforms: form.runMode === 'download' ? form.platforms : ['Web'],
         version: form.version,
         updatedAt: date,
-        releasedAt: date,
-        plays: 0,
-        likes: 0,
+        releasedAt: isEdit && editGame ? editGame.releasedAt : date,
+        plays: isEdit && editGame ? editGame.plays : 0,
+        likes: isEdit && editGame ? editGame.likes : 0,
         price: 'free',
         cover,
-        keyart: shots[0],
+        keyart: isEdit && editGame && form.shots.every((s) => !s.file)
+          ? editGame.keyart ?? shots[0]
+          : shots[0],
         shots,
         webBuild: launchUrl ? { entry: launchUrl.pathname, host: launchUrl.host, bytes: 0, engineVersion: form.version, launchUrl: launchUrl.href } : undefined,
         download,
-        changelog: form.changelog ? [{ version: form.version, date, notes: [form.changelog] }] : [],
+        // 编辑时把新版本说明追加到最前，不覆盖历史
+        changelog: form.changelog.trim()
+          ? [{ version: form.version, date, notes: [form.changelog.trim()] }, ...(isEdit && editGame ? editGame.changelog ?? [] : [])]
+          : (isEdit && editGame ? editGame.changelog ?? [] : []),
       };
-      if (ownerId) await insertGame(game, ownerId);
+      if (isEdit) {
+        // 作者改资料走 security definer RPC，服务端校验 owner + 自动打回待审核
+        await updateMyGame(slug, {
+          title: game.title,
+          title_cn: game.titleCn,
+          tagline: game.tagline,
+          description: game.description,
+          studio: game.studio,
+          engine: game.engine,
+          engine_version: game.engineVersion,
+          categories: game.categories,
+          tags: game.tags,
+          cover: toStoredAsset(game.cover),
+          keyart: toStoredAsset(game.keyart),
+          shots: (game.shots ?? []).map((s) => toStoredAsset(s)),
+          web_build: game.webBuild ?? null,
+          download: game.download ?? null,
+          version: game.version,
+          changelog: game.changelog ?? [],
+        });
+        setEditGame(game);
+      } else if (ownerId) await insertGame(game, ownerId);
       else store.addPublished(game);
       if (draftId) store.removeDraft(draftId);
       setPublished(true);
@@ -252,7 +336,7 @@ export default function Upload() {
         >
           <CheckCircle size={34} weight="duotone" />
         </motion.span>
-        <h1 className="mt-6 text-[26px] font-bold tracking-[-0.03em]">已经提交发布</h1>
+        <h1 className="mt-6 text-[26px] font-bold tracking-[-0.03em]">{editGame ? '已经提交更新' : '已经提交发布'}</h1>
         <p className="mt-2 max-w-[42ch] text-[13.5px] leading-relaxed text-muted">
           《{form.title}》{HAS_BACKEND ? '已提交审核，通过后公开展示。' : '已保存到本地演示数据。'}
         </p>
@@ -267,6 +351,7 @@ export default function Upload() {
               submissionId.current = undefined;
               setForm(initial);
               setStep(0);
+              if (editSlug) window.location.assign('/upload');
             }}
           >
             再发一个
@@ -276,15 +361,29 @@ export default function Upload() {
     );
   }
 
+  if (editLoading) {
+    return <div className="wrap inner-page py-16 text-[13px] text-muted" role="status">正在读取作品资料…</div>;
+  }
+  if (editError) {
+    return (
+      <div className="wrap inner-page py-16">
+        <p className="text-[13px] text-danger" role="alert">{editError}</p>
+        <Link to="/me" className="link-underline mt-3 inline-block text-[13px] text-bone-dim">回到工作台 →</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="wrap inner-page upload-page">
       <div className="inner-heading">
         <div>
           <h1>
-            发布游戏
+            {editGame ? '编辑作品' : '发布游戏'}
           </h1>
           <p className="mt-2 max-w-[54ch] text-[13.5px] leading-relaxed text-muted">
-            填写作品资料并提供网页运行地址或客户端安装包。
+            {editGame
+              ? '修改资料或添加新版本说明。提交后需要重新审核通过才会公开展示。'
+              : '填写作品资料并提供网页运行地址或客户端安装包。'}
           </p>
         </div>
       </div>
@@ -792,7 +891,7 @@ export default function Upload() {
                   disabled={submitting}
                   onClick={() => void publish()}
                 >
-                  {submitting ? '正在提交…' : HAS_BACKEND ? '提交审核' : '保存演示作品'}
+                  {submitting ? '正在提交…' : HAS_BACKEND ? (editGame ? '提交更新' : '提交审核') : '保存演示作品'}
                 </button>
               )}
             </div>

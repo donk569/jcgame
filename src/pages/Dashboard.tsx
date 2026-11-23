@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/api';
 import type { Game } from '@/api/types';
 import { fetchApprovedWorks, fetchCreatorStats, type ActivityDay, type CreatorStats } from '@/api/stats';
 import { useCanModerate } from '@/api/moderation';
+import { setMyGameState } from '@/api/manage';
 import { supabase } from '@/api/supabase';
 import { MySubmissions } from '@/components/MySubmissions';
 import { NotificationInbox } from '@/components/NotificationInbox';
@@ -240,7 +241,16 @@ export default function Dashboard() {
           <div className="grid-12">
             <div className="col-span-12 lg:col-span-8">
               {featured ? (
-                <FeaturedWork game={featured} />
+                <FeaturedWork
+                  game={featured}
+                  onChanged={() => {
+                    if (!backendUserId) return;
+                    void fetchApprovedWorks(backendUserId).then(
+                      (games) => setWorksState({ owner: backendUserId, games }),
+                      () => setWorksState({ owner: backendUserId, failed: true }),
+                    );
+                  }}
+                />
               ) : backendUserId && !approvedWorks ? (
                 <p className="py-9 text-[13px] text-bone-dim">
                   {worksFailed ? '暂时无法读取你的作品，请刷新重试。' : '正在读取你的作品…'}
@@ -527,10 +537,27 @@ export default function Dashboard() {
 /* 主推作品：细线框 + 海报 + 规格行（不重复统计）                       */
 /* ------------------------------------------------------------------ */
 
-function FeaturedWork({ game }: { game: Game }) {
+function FeaturedWork({ game, onChanged }: { game: Game; onChanged: () => void }) {
   const toast = useToast();
   const reduce = useReducedMotion();
   const [hover, setHover] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function hide() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await setMyGameState(game.slug, 'hidden');
+      toast.push('作品已下架', 'ok');
+      setMenuOpen(false);
+      onChanged();
+    } catch {
+      toast.push('下架失败，请重试');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div>
@@ -580,19 +607,40 @@ function FeaturedWork({ game }: { game: Game }) {
             <Link to={`/game/${game.slug}`} className="btn btn-brand btn-sm">
               查看游戏页
             </Link>
-            <button
-              onClick={() => toast.push('演示环境：编辑页还没接')}
+            <Link
+              to={`/upload?edit=${encodeURIComponent(game.slug)}`}
               className="link-underline text-[12.5px] text-muted hover:text-bone"
             >
               编辑
-            </button>
-            <button
-              onClick={() => toast.push('演示环境：作品设置未接入')}
-              className="ml-auto text-muted hover:text-bone"
-              aria-label="更多操作"
-            >
-              <DotsThree size={18} weight="bold" />
-            </button>
+            </Link>
+            <div className="relative ml-auto">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="text-muted hover:text-bone"
+                aria-label="更多操作"
+                aria-expanded={menuOpen}
+              >
+                <DotsThree size={18} weight="bold" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-8 z-20 w-36 border border-line bg-ink-850 py-1 shadow-lg">
+                  <Link
+                    to={`/upload?edit=${encodeURIComponent(game.slug)}`}
+                    className="block px-3 py-2 text-[12.5px] text-bone-dim hover:bg-ink-700"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    编辑资料
+                  </Link>
+                  <button
+                    onClick={() => void hide()}
+                    disabled={busy}
+                    className="block w-full px-3 py-2 text-left text-[12.5px] text-danger hover:bg-ink-700 disabled:opacity-50"
+                  >
+                    {busy ? '处理中…' : '下架作品'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

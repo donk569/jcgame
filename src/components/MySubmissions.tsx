@@ -1,24 +1,46 @@
 ﻿import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchMySubmissions, type Submission } from '@/api/moderation';
+import { setMyGameState } from '@/api/manage';
+import { useToast } from '@/components/Toast';
 import { useAppStore } from '@/store/AppStore';
 
 const statuses = { pending: '待审核', approved: '已通过', rejected: '未通过', hidden: '已下架' };
 
 export function MySubmissions() {
   const { backendUserId } = useAppStore();
+  const toast = useToast();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [unavailable, setUnavailable] = useState(false);
-  useEffect(() => {
+  const [busy, setBusy] = useState<string>();
+
+  function load() {
     if (!backendUserId) return;
-    let active = true;
     setSubmissions([]);
     setUnavailable(false);
     void fetchMySubmissions().then(
-      (rows) => { if (active) setSubmissions(rows); },
-      () => { if (active) setUnavailable(true); },
+      (rows) => setSubmissions(rows),
+      () => setUnavailable(true),
     );
-    return () => { active = false; };
+  }
+
+  useEffect(() => {
+    load();
   }, [backendUserId]);
+
+  async function resubmit(slug: string) {
+    if (busy) return;
+    setBusy(slug);
+    try {
+      await setMyGameState(slug, 'pending');
+      toast.push('已重新提交审核', 'ok');
+      load();
+    } catch {
+      toast.push('提交失败，请重试');
+    } finally {
+      setBusy(undefined);
+    }
+  }
 
   if (!backendUserId || (!submissions.length && !unavailable)) return null;
   return (
@@ -32,6 +54,20 @@ export function MySubmissions() {
               <strong>{entry.title}</strong><span className="text-warm">{statuses[entry.status]}</span>
             </p>
             {entry.note && <p className="mt-1 text-sm text-muted">{entry.note}</p>}
+            {(entry.status === 'rejected' || entry.status === 'hidden') && (
+              <p className="mt-2 flex flex-wrap gap-4 text-[12.5px]">
+                <Link className="link-underline text-bone-dim hover:text-bone" to={`/upload?edit=${encodeURIComponent(entry.slug)}`}>
+                  编辑后重交
+                </Link>
+                <button
+                  className="link-underline text-bone-dim hover:text-bone disabled:opacity-50"
+                  disabled={busy === entry.slug}
+                  onClick={() => void resubmit(entry.slug)}
+                >
+                  {busy === entry.slug ? '提交中…' : '直接重新提交'}
+                </button>
+              </p>
+            )}
           </li>
         ))}
       </ul>
